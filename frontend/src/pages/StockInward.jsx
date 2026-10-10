@@ -20,10 +20,12 @@ import {
   Volume2, 
   VolumeX, 
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   ChevronDown,
   Layers,
-  Globe
+  Globe,
+  Trash2
 } from 'lucide-react';
 
 export default function StockInward() {
@@ -35,6 +37,10 @@ export default function StockInward() {
 
   const [activeLang, setActiveLang] = useState('en'); // en, ta, hi, te, kn, ml
   const [categories, setCategories] = useState([]);
+
+  // Staged Bulk Inward Queue (1 barcode = 1 stock unit)
+  const [scanQueue, setScanQueue] = useState([]);
+  const [toasts, setToasts] = useState([]);
 
   // New Item Quick Creation inline form
   const [isCreatingNew, setIsCreatingNew] = useState(false);
@@ -52,7 +58,6 @@ export default function StockInward() {
     unit: 'pcs',
     sellingPrice: '',
     purchasePrice: '',
-    openingStock: '0',
     lowStockLevel: 5,
     isQuickItem: false,
     gstPercent: 0
@@ -76,20 +81,15 @@ export default function StockInward() {
   };
 
   // Scanned Barcode & Stock Form
-  const [barcode, setBarcode] = useState('');
-  const [incomingQty, setIncomingQty] = useState('1');
+  const [manualBarcode, setManualBarcode] = useState('');
   const [costPrice, setCostPrice] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
-  const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
   
   // Continuous Camera & Feedback States
   const [cameraActive, setCameraActive] = useState(true);
   const [cameraError, setCameraError] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [autoAddOnScan, setAutoAddOnScan] = useState(true);
-  const [autoAddAmount, setAutoAddAmount] = useState(1);
-  const [recentScans, setRecentScans] = useState([]);
   const [cameras, setCameras] = useState([]);
   const [activeCameraId, setActiveCameraId] = useState('');
   const [facingMode, setFacingMode] = useState('environment'); // 'environment' (back) or 'user' (front)
@@ -135,6 +135,19 @@ export default function StockInward() {
     }
   }, [selectedItemId, allItems]);
 
+  // Toast Helper
+  const showToast = (message, type = 'info', duration = 3500) => {
+    const id = Date.now() + Math.random().toString(36).substring(2, 6);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, duration);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
   // Audio Beep
   const playBeep = () => {
     if (!soundEnabled) return;
@@ -151,6 +164,25 @@ export default function StockInward() {
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.08);
+    } catch {}
+  };
+
+  const playWarningSound = () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = audioCtxRef.current || new (window.AudioContext || window.webkitAudioContext)();
+      audioCtxRef.current = ctx;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(320, ctx.currentTime);
+      osc.frequency.setValueAtTime(220, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.25);
     } catch {}
   };
 
@@ -253,12 +285,11 @@ export default function StockInward() {
               if (!text) return;
 
               scanLockRef.current = true;
-              playBeep();
-              handleBarcodeScanned(text);
+              handleIncomingScan(text);
 
               setTimeout(() => {
                 scanLockRef.current = false;
-              }, 1300);
+              }, 1100);
             }
           }
         );
@@ -316,88 +347,122 @@ export default function StockInward() {
   };
 
   // When a barcode is scanned or entered
-  const handleBarcodeScanned = async (scannedCode) => {
+  // Check if a barcode is already added in database under any item
+  const findItemWithBarcodeInDB = (code) => {
+    const clean = code.trim().toLowerCase();
+    return allItems.find(it => {
+      if (it.barcode && it.barcode.trim().toLowerCase() === clean) return true;
+      if (it.code && it.code.trim().toLowerCase() === clean) return true;
+      if (Array.isArray(it.barcodes) && it.barcodes.some(b => b && b.trim().toLowerCase() === clean)) return true;
+      return false;
+    });
+  };
+
+  // Main Incoming Scan Handler (Zero-confirmation, 1 stock per unique barcode, duplicates warned via Toast)
+  const handleIncomingScan = (scannedCode) => {
     const code = (scannedCode || '').trim();
     if (!code) return;
 
-    setBarcode(code);
-    setSaveSuccessMsg('');
-
-    if (selectedItem) {
-      if (autoAddOnScan) {
-        await linkBarcodeAndAddStock(selectedItem, code, autoAddAmount);
-      } else {
-        setSaveSuccessMsg(`Barcode "${code}" detected! Review quantity and click "Confirm Add Stock".`);
-      }
+    // 1. Check if this barcode is ALREADY in the current staged queue
+    const duplicateInQueue = scanQueue.find(q => q.barcode.toLowerCase() === code.toLowerCase());
+    if (duplicateInQueue) {
+      playWarningSound();
+      showToast(`Already this item added in stock! Barcode "${code}" is already in the list.`, 'error');
       return;
     }
 
-    // If no item selected yet, check if this barcode is already known in DB
-    try {
-      const res = await axios.get(`/api/items/barcode/${encodeURIComponent(code)}`);
-      if (res.data) {
-        const found = res.data;
-        setSelectedItem(found);
-        setSelectedItemId(found._id);
-        setCostPrice(found.purchasePrice || '');
-        setSellingPrice(found.sellingPrice || '');
+    // 2. Check if this barcode is ALREADY registered in the Database under any item
+    const existingInDB = findItemWithBarcodeInDB(code);
 
-        if (autoAddOnScan) {
-          await linkBarcodeAndAddStock(found, code, autoAddAmount);
-        } else {
-          setSaveSuccessMsg(`Product "${found.name}" found! Current stock: ${found.currentStock}.`);
-        }
+    let targetItem = selectedItem;
+
+    if (!targetItem) {
+      if (existingInDB) {
+        targetItem = existingInDB;
+        setSelectedItem(existingInDB);
+        setSelectedItemId(existingInDB._id);
+        setCostPrice(existingInDB.purchasePrice || '');
+        setSellingPrice(existingInDB.sellingPrice || '');
+      } else {
+        playWarningSound();
+        showToast(`Barcode "${code}" detected! Please select an item on the left first to link this barcode.`, 'warning');
+        setManualBarcode(code);
+        return;
       }
-    } catch {
-      setSaveSuccessMsg(`Scanned: "${code}". Please select an item on the left to link this barcode.`);
+    } else {
+      if (existingInDB && existingInDB._id !== targetItem._id) {
+        playWarningSound();
+        showToast(`Already added in stock! Barcode "${code}" belongs to "${getItemDisplayName(existingInDB)}"`, 'error');
+        return;
+      }
+      if (existingInDB && existingInDB._id === targetItem._id) {
+        playWarningSound();
+        showToast(`Already added in stock! Barcode "${code}" already exists for "${getItemDisplayName(targetItem)}".`, 'error');
+        return;
+      }
+    }
+
+    // 3. Success: Valid unique barcode! Add directly into staged queue (1 count per barcode)
+    playBeep();
+    const newEntry = {
+      id: Date.now() + Math.random().toString(36).substring(2, 7),
+      itemId: targetItem._id,
+      itemName: getItemDisplayName(targetItem),
+      originalName: targetItem.name,
+      unit: targetItem.unit,
+      barcode: code,
+      costPrice: costPrice !== '' ? Number(costPrice) : (targetItem.purchasePrice || 0),
+      sellingPrice: sellingPrice !== '' ? Number(sellingPrice) : (targetItem.sellingPrice || 0),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    };
+
+    setScanQueue(prev => [newEntry, ...prev]);
+    showToast(`Added: "${code}" for "${getItemDisplayName(targetItem)}" (+1 ${targetItem.unit})`, 'success');
+  };
+
+  // Remove a staged item from the table
+  const handleRemoveFromQueue = (entryId) => {
+    setScanQueue(prev => prev.filter(q => q.id !== entryId));
+  };
+
+  // Clear all staged items
+  const handleClearQueue = () => {
+    if (scanQueue.length === 0) return;
+    if (window.confirm('Clear all items from the inward table?')) {
+      setScanQueue([]);
     }
   };
 
-  // Link barcode and increment stock
-  const linkBarcodeAndAddStock = async (itemToUpdate, codeToLink, qtyToAdd) => {
-    const targetItem = itemToUpdate || selectedItem;
-    if (!targetItem) {
-      alert('Please select or create an item first!');
+  // Commit and Create Bulk Stock
+  const handleBulkCommitStock = async () => {
+    if (scanQueue.length === 0) {
+      alert('Inward table is empty! Scan one or more barcodes first.');
       return;
     }
 
     setSubmitting(true);
     try {
-      const qtyNum = Number(qtyToAdd) || 1;
-      const res = await axios.post('/api/items/link-barcode-stock', {
-        itemId: targetItem._id,
-        barcode: codeToLink || barcode,
-        quantity: qtyNum,
-        costPrice: costPrice !== '' ? costPrice : undefined,
-        sellingPrice: sellingPrice !== '' ? sellingPrice : undefined,
-        note: `Barcode Inward (+${qtyNum})`
+      const res = await axios.post('/api/items/bulk-barcode-inward', {
+        items: scanQueue
       });
 
-      const updated = res.data.item;
       playSuccessSound();
+      showToast(`Success! ${scanQueue.length} items created in stock!`, 'success', 5000);
 
-      setSelectedItem(updated);
-      setAllItems(prev => prev.map(i => i._id === updated._id ? updated : i));
+      // Refresh items list
+      await loadAllItems();
 
-      const logEntry = {
-        name: getItemDisplayName(updated),
-        originalName: updated.name,
-        code: codeToLink || barcode,
-        qty: qtyNum,
-        unit: updated.unit,
-        newStock: updated.currentStock,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      };
-      setRecentScans(prev => [logEntry, ...prev.slice(0, 9)]);
-      setSaveSuccessMsg(`Added +${qtyNum} ${updated.unit} to "${getItemDisplayName(updated)}" (Live Stock: ${updated.currentStock})`);
+      // Clear the staged table
+      setScanQueue([]);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update stock');
+      console.error('Bulk commit error:', err);
+      showToast(err.response?.data?.message || 'Failed to commit stock inward', 'error');
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Quick Create New Item
+  // Quick Create New Item (No Initial Count)
   const handleCreateNewItem = async (e) => {
     e.preventDefault();
     if (!newItemForm.name.trim() || !newItemForm.sellingPrice) {
@@ -410,12 +475,10 @@ export default function StockInward() {
       const payload = {
         name: newItemForm.name.trim(),
         translations: newItemForm.translations || {},
-        barcode: barcode.trim() || undefined,
         category: newItemForm.category.trim() || 'General',
         unit: newItemForm.unit,
         sellingPrice: Number(newItemForm.sellingPrice),
         purchasePrice: Number(newItemForm.purchasePrice) || 0,
-        openingStock: Number(newItemForm.openingStock) || 0,
         lowStockLevel: Number(newItemForm.lowStockLevel) || 5,
         isQuickItem: Boolean(newItemForm.isQuickItem),
         gstPercent: Number(newItemForm.gstPercent) || 0
@@ -436,16 +499,15 @@ export default function StockInward() {
         unit: 'pcs',
         sellingPrice: '',
         purchasePrice: '',
-        openingStock: '0',
         lowStockLevel: 5,
         isQuickItem: false,
         gstPercent: 0
       });
 
       const dispName = getItemDisplayName(created);
-      setSaveSuccessMsg(`Item "${dispName}" created! Ready to scan packet barcodes.`);
+      showToast(`Item "${dispName}" created! Ready to scan packet barcodes.`, 'success');
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to create item');
+      showToast(err.response?.data?.message || 'Failed to create item', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -468,21 +530,50 @@ export default function StockInward() {
   });
 
   return (
-    <div className="p-3 sm:p-5 max-w-7xl mx-auto space-y-4 pb-20 md:pb-6">
+    <div className="p-3 sm:p-5 max-w-7xl mx-auto space-y-4 pb-24 md:pb-8 relative">
       
+      {/* Toast Notification Container (Fixed Top Right) */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md w-full pointer-events-none px-3">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className={`pointer-events-auto flex items-start justify-between gap-3 p-3.5 rounded-2xl shadow-xl border text-xs sm:text-sm font-bold backdrop-blur-md transition-all transform animate-in slide-in-from-top-3 duration-200 ${
+              t.type === 'error'
+                ? 'bg-red-50/95 border-red-300 text-red-950 shadow-red-500/10'
+                : t.type === 'warning'
+                ? 'bg-amber-50/95 border-amber-300 text-amber-950 shadow-amber-500/10'
+                : 'bg-emerald-50/95 border-emerald-300 text-emerald-950 shadow-emerald-500/10'
+            }`}
+          >
+            <div className="flex items-start gap-2.5">
+              {t.type === 'error' && <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />}
+              {t.type === 'warning' && <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />}
+              {t.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />}
+              <span>{t.message}</span>
+            </div>
+            <button
+              onClick={() => removeToast(t.id)}
+              className="p-1 hover:bg-black/5 rounded-lg text-slate-500 hover:text-slate-800 transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+
       {/* Top Header */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <Barcode className="w-5 h-5 text-brand-600" />
-            Stock Inward &amp; Barcode Management
+            Bulk Stock Inward &amp; Barcode Management
             <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-100 text-brand-900 border border-brand-300">
               <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
-              LIVE POS ENGINE
+              INSTANT AUTO-ADD
             </span>
           </h2>
           <p className="text-xs text-slate-500 font-medium">
-            Dedicated screen to receive stock, link packet barcodes &amp; QRs continuously, and update inventory
+            Scan bulk packets directly &bull; 1 stock per unique barcode &bull; Duplicates automatically blocked
           </p>
         </div>
 
@@ -517,19 +608,6 @@ export default function StockInward() {
           >
             {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
-
-          <label className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={autoAddOnScan}
-              onChange={(e) => setAutoAddOnScan(e.target.checked)}
-              className="rounded accent-brand-500 w-4 h-4 cursor-pointer"
-            />
-            <span className="flex items-center gap-1 text-brand-800">
-              <Zap className="w-3.5 h-3.5 text-brand-600 fill-brand-600" />
-              Auto +{autoAddAmount} on Scan
-            </span>
-          </label>
         </div>
       </div>
 
@@ -683,7 +761,7 @@ export default function StockInward() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div>
                     <label className="block text-[10px] font-bold text-brand-700 uppercase tracking-wider mb-0.5">
                       Selling Price (₹) *
@@ -730,20 +808,6 @@ export default function StockInward() {
                       <option value="box">Box</option>
                       <option value="litre">Litre (L)</option>
                     </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-0.5">
-                      Initial Qty
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={newItemForm.openingStock}
-                      onChange={(e) => setNewItemForm({ ...newItemForm, openingStock: e.target.value })}
-                      placeholder="0"
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono text-xs font-bold focus:outline-none focus:border-brand-500"
-                    />
                   </div>
                 </div>
 
@@ -884,51 +948,31 @@ export default function StockInward() {
             )}
           </div>
 
-          {/* Recent Inward Scans History Box */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-              <span className="flex items-center gap-1.5">
-                <History className="w-4 h-4 text-brand-600" />
-                Live Inward Log ({recentScans.length})
-              </span>
-              {recentScans.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setRecentScans([])}
-                  className="text-[10px] text-slate-400 hover:text-slate-600"
-                >
-                  Clear log
-                </button>
-              )}
-            </div>
-
-            {recentScans.length === 0 ? (
-              <p className="py-6 text-center text-xs text-slate-400">
-                Scanned items will be logged here in real time.
-              </p>
-            ) : (
-              <div className="divide-y divide-slate-100 max-h-48 overflow-y-auto">
-                {recentScans.map((scan, idx) => (
-                  <div key={idx} className="py-2 flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-bold text-slate-900">{scan.name}</span>
-                      <span className="text-[10px] text-slate-400 font-mono ml-2">#{scan.code}</span>
-                    </div>
-                    <div className="text-right flex items-center gap-2">
-                      <span className="font-mono font-black text-brand-700 bg-brand-50 px-2 py-0.5 rounded text-xs border border-brand-200">
-                        +{scan.qty} {scan.unit}
-                      </span>
-                      <span className="text-[10px] text-slate-400">{scan.time}</span>
-                    </div>
-                  </div>
-                ))}
+          {/* Quick Staged Summary Card */}
+          <div className="bg-slate-900 text-white p-4 rounded-2xl flex items-center justify-between shadow-xs">
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Staged to Add</span>
+              <div className="text-2xl font-black font-mono text-brand-400 mt-0.5">
+                {scanQueue.length} <span className="text-xs text-slate-300 font-normal">items in table</span>
               </div>
+            </div>
+            
+            {scanQueue.length > 0 && (
+              <button
+                type="button"
+                onClick={handleBulkCommitStock}
+                disabled={submitting}
+                className="px-4 py-2.5 bg-brand-500 hover:bg-brand-400 text-slate-950 font-black rounded-xl text-xs transition shadow-xs flex items-center gap-1.5 active:scale-95"
+              >
+                <Check className="w-4 h-4" />
+                <span>{submitting ? 'Creating...' : `Create All Stock (${scanQueue.length})`}</span>
+              </button>
             )}
           </div>
 
         </div>
 
-        {/* RIGHT COLUMN: Continuous Camera Viewfinder & Inward Form (lg:col-span-7) */}
+        {/* RIGHT COLUMN: Continuous Camera Viewfinder & Barcode Input (lg:col-span-7) */}
         <div className="lg:col-span-7 space-y-4">
           
           {/* Continuous Camera Viewfinder Screen */}
@@ -936,7 +980,7 @@ export default function StockInward() {
             <div className="flex items-center justify-between">
               <label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                 <Camera className="w-4 h-4 text-brand-600" />
-                Step 2: Continuous Camera Barcode &amp; QR Scanner
+                Step 2: Instant Camera Scanner (1 Barcode = 1 Stock)
               </label>
 
               <div className="flex items-center gap-2">
@@ -949,9 +993,6 @@ export default function StockInward() {
                   <RefreshCw className="w-3.5 h-3.5 text-brand-600" />
                   <span>{facingMode === 'environment' ? '📷 Rear (Back)' : '🤳 Front (Selfie)'}</span>
                 </button>
-                <span className="hidden sm:inline text-[11px] text-slate-400">
-                  Hold barcode 15-20cm from camera
-                </span>
               </div>
             </div>
 
@@ -961,7 +1002,7 @@ export default function StockInward() {
                 playsInline 
                 muted 
                 autoPlay 
-                className="w-full h-full object-cover min-h-[220px] sm:min-h-[260px] max-h-[360px]" 
+                className="w-full h-full object-cover min-h-[220px] sm:min-h-[260px] max-h-[340px]" 
               />
 
               {/* Aiming Reticle Laser Overlay */}
@@ -981,13 +1022,11 @@ export default function StockInward() {
               <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
                 <span className="px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-xs text-[10px] font-bold text-white flex items-center gap-1 border border-white/10">
                   <Zap className="w-3.5 h-3.5 text-brand-400 fill-brand-400" />
-                  Fast Detection Ready
+                  Continuous Auto-Capture Ready
                 </span>
-                {barcode && (
-                  <span className="px-2.5 py-1 rounded-lg bg-brand-500 text-slate-950 font-mono font-bold text-xs">
-                    #{barcode}
-                  </span>
-                )}
+                <span className="px-2.5 py-1 rounded-lg bg-brand-500 text-slate-950 font-mono font-bold text-xs">
+                  {scanQueue.length} scanned
+                </span>
               </div>
 
               {cameraError && (
@@ -1026,132 +1065,138 @@ export default function StockInward() {
                 <Barcode className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
+                  value={manualBarcode}
+                  onChange={(e) => setManualBarcode(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      handleBarcodeScanned(barcode);
+                      handleIncomingScan(manualBarcode);
+                      setManualBarcode('');
                     }
                   }}
-                  placeholder="Last scanned barcode or type manual barcode & hit Enter..."
+                  placeholder="Scan barcode or type & hit Enter..."
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono text-xs sm:text-sm font-bold focus:outline-none focus:border-brand-500"
                 />
               </div>
 
               <button
                 type="button"
-                onClick={() => handleBarcodeScanned(barcode)}
-                disabled={!barcode.trim()}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition disabled:opacity-50"
+                onClick={() => {
+                  handleIncomingScan(manualBarcode);
+                  setManualBarcode('');
+                }}
+                disabled={!manualBarcode.trim()}
+                className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-slate-950 font-black rounded-xl text-xs transition disabled:opacity-50"
               >
-                Scan Code
+                + Add Barcode
               </button>
             </div>
           </div>
 
-          {/* Success Banner */}
-          {saveSuccessMsg && (
-            <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-2xl text-emerald-900 text-xs sm:text-sm font-bold flex items-center gap-2.5 animate-in slide-in-from-top duration-200">
-              <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600" />
-              <span>{saveSuccessMsg}</span>
-            </div>
-          )}
-
-          {/* Dynamic Stock Adjustment Box */}
-          {selectedItem && (
-            <div className="bg-white border border-brand-300 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xs">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <div>
-                  <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-300">
-                    Active Inward Target
-                  </span>
-                  <h3 className="text-base font-black text-slate-900 mt-1">{selectedItem.name}</h3>
-                </div>
-
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase">Current Inventory</span>
-                  <div className="text-xl font-black text-brand-700 font-mono">
-                    {selectedItem.currentStock} {selectedItem.unit}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-bold text-brand-700 uppercase tracking-wider">
-                      + Add Qty *
-                    </label>
-                    <div className="flex gap-1">
-                      {[1, 5, 10, 20].map((num) => (
-                        <button
-                          key={num}
-                          type="button"
-                          onClick={() => setIncomingQty(String(num))}
-                          className="px-1.5 py-0.5 text-[10px] bg-slate-100 hover:bg-brand-500 hover:text-slate-950 text-slate-700 font-bold rounded"
-                        >
-                          +{num}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0.01"
-                    required
-                    value={incomingQty}
-                    onChange={(e) => setIncomingQty(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border-2 border-brand-500 rounded-xl text-slate-900 font-mono font-black text-lg focus:outline-none focus:border-brand-600 shadow-2xs"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                    Cost Price (₹)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={costPrice}
-                    onChange={(e) => setCostPrice(e.target.value)}
-                    placeholder={selectedItem.purchasePrice || '0.00'}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono text-sm focus:outline-none focus:border-brand-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                    Selling Price (₹)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={sellingPrice}
-                    onChange={(e) => setSellingPrice(e.target.value)}
-                    placeholder={selectedItem.sellingPrice || '0.00'}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono text-sm focus:outline-none focus:border-brand-500 font-bold"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => linkBarcodeAndAddStock(selectedItem, barcode, incomingQty)}
-                disabled={submitting}
-                className="w-full py-3 bg-brand-500 hover:bg-brand-600 active:scale-98 text-slate-950 font-black rounded-xl text-sm transition shadow-xs disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                <span>
-                  {submitting ? 'Updating...' : `Confirm Add +${incomingQty || 0} ${selectedItem.unit} to Inventory`}
-                </span>
-              </button>
-            </div>
-          )}
-
         </div>
 
+      </div>
+
+      {/* FULL-WIDTH STAGED BULK INWARD TABLE & CREATE BUTTON */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
+              <Layers className="w-4 h-4 text-brand-600" />
+              Scanned Stock Inward Table ({scanQueue.length} items staged)
+            </h3>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Review all scanned packets below. Each unique barcode equals 1 stock unit. Click "Create &amp; Update Stock" to commit.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {scanQueue.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearQueue}
+                className="px-3 py-2 bg-white hover:bg-rose-50 text-rose-600 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Clear List</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleBulkCommitStock}
+              disabled={submitting || scanQueue.length === 0}
+              className="px-5 py-2.5 bg-brand-500 hover:bg-brand-400 active:scale-95 text-slate-950 font-black rounded-xl text-xs sm:text-sm transition shadow-xs disabled:opacity-40 flex items-center gap-2"
+            >
+              <Check className="w-4 h-4" />
+              <span>{submitting ? 'Creating Stock...' : `Create & Update Stock (${scanQueue.length})`}</span>
+            </button>
+          </div>
+        </div>
+
+        {scanQueue.length === 0 ? (
+          <div className="p-8 text-center text-slate-400 space-y-2">
+            <Barcode className="w-10 h-10 mx-auto text-slate-300 stroke-1" />
+            <p className="text-sm font-bold text-slate-600">No items scanned yet</p>
+            <p className="text-xs max-w-sm mx-auto text-slate-400">
+              Select an item above and point the camera to barcodes. Each scan automatically adds 1 item to this table without asking confirmation!
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-100 text-slate-700 font-black uppercase text-[10px] tracking-wider border-b border-slate-200">
+                <tr>
+                  <th className="py-2.5 px-3">#</th>
+                  <th className="py-2.5 px-3">Item Name</th>
+                  <th className="py-2.5 px-3">Scanned Barcode / QR</th>
+                  <th className="py-2.5 px-3 text-center">Qty</th>
+                  <th className="py-2.5 px-3 text-right">Selling Price</th>
+                  <th className="py-2.5 px-3">Scanned Time</th>
+                  <th className="py-2.5 px-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {scanQueue.map((item, index) => (
+                  <tr key={item.id} className="hover:bg-brand-50/40 transition">
+                    <td className="py-2.5 px-3 font-mono text-slate-400 font-bold">
+                      {index + 1}
+                    </td>
+                    <td className="py-2.5 px-3 font-bold text-slate-900">
+                      {item.itemName}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span className="font-mono bg-slate-100 text-slate-900 px-2 py-0.5 rounded border border-slate-200 font-bold text-xs">
+                        {item.barcode}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-center font-black text-brand-800">
+                      <span className="px-2 py-0.5 bg-brand-100 border border-brand-300 rounded font-mono">
+                        +1 {item.unit}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-bold text-slate-900">
+                      ₹{item.sellingPrice}
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px]">
+                      {item.timestamp}
+                    </td>
+                    <td className="py-2.5 px-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFromQueue(item.id)}
+                        className="p-1 hover:bg-rose-100 text-slate-400 hover:text-rose-600 rounded-md transition"
+                        title="Remove from table"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
     </div>

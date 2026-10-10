@@ -560,12 +560,12 @@ export default function Items() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">Barcode / Code</label>
                   <input
                     type="text"
-                    placeholder="Scan or auto"
+                    placeholder="Scan or auto-generated"
                     value={formData.barcode}
                     onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-hidden"
@@ -573,12 +573,12 @@ export default function Items() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Current Stock</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Alert Below (Low Stock Qty)</label>
                   <input
                     type="number"
-                    step="0.01"
-                    value={formData.openingStock}
-                    onChange={(e) => setFormData({ ...formData, openingStock: e.target.value })}
+                    step="any"
+                    value={formData.lowStockLevel}
+                    onChange={(e) => setFormData({ ...formData, lowStockLevel: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-hidden"
                   />
                 </div>

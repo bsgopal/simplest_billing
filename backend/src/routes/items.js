@@ -209,11 +209,86 @@ router.post('/link-barcode-stock', protect, async (req, res) => {
       performedBy: req.user.name
     });
 
-    res.json({ message: 'Barcode linked and stock added successfully', item: updatedItem });
+// Bulk Commit Scanned Barcodes to Items (1 stock per unique barcode)
+router.post('/bulk-barcode-inward', protect, async (req, res) => {
+  try {
+    const { items: scanList } = req.body;
+    if (!Array.isArray(scanList) || scanList.length === 0) {
+      return res.status(400).json({ message: 'No scanned items provided to commit' });
+    }
+
+    const models = getTenantDb(req.customerCode);
+    const updatedItems = [];
+    const skippedBarcodes = [];
+
+    // Group scanned barcodes by itemId
+    const grouped = {};
+    for (const entry of scanList) {
+      const { itemId, barcode } = entry;
+      const cleanBarcode = barcode ? barcode.trim() : '';
+      if (!itemId || !cleanBarcode) continue;
+
+      if (!grouped[itemId]) {
+        grouped[itemId] = {
+          itemId,
+          barcodes: new Set(),
+          costPrice: entry.costPrice,
+          sellingPrice: entry.sellingPrice
+        };
+      }
+      grouped[itemId].barcodes.add(cleanBarcode);
+    }
+
+    for (const grp of Object.values(grouped)) {
+      const item = await models.Item.findById(grp.itemId);
+      if (!item) continue;
+
+      const barcodesToAdd = Array.from(grp.barcodes);
+      const qtyToAdd = barcodesToAdd.length; // 1 stock per unique scanned barcode
+
+      const updateOps = {
+        $inc: { currentStock: qtyToAdd },
+        $addToSet: { barcodes: { $each: barcodesToAdd } }
+      };
+
+      if (!item.barcode && barcodesToAdd.length > 0) {
+        updateOps.$set = { barcode: barcodesToAdd[0] };
+      }
+
+      if (grp.costPrice !== undefined && grp.costPrice !== '') {
+        updateOps.$set = { ...(updateOps.$set || {}), purchasePrice: parseFloat(grp.costPrice) || 0 };
+      }
+      if (grp.sellingPrice !== undefined && grp.sellingPrice !== '') {
+        updateOps.$set = { ...(updateOps.$set || {}), sellingPrice: parseFloat(grp.sellingPrice) || 0 };
+      }
+
+      const updated = await models.Item.findByIdAndUpdate(grp.itemId, updateOps, { new: true });
+      updatedItems.push(updated);
+
+      await models.AuditLog.create({
+        action: 'BULK_STOCK_INWARD_BARCODE',
+        entity: 'Item',
+        entityId: grp.itemId,
+        details: {
+          itemName: item.name,
+          barcodesAdded: barcodesToAdd,
+          quantityAdded: qtyToAdd,
+          newStock: updated.currentStock
+        },
+        performedBy: req.user.name
+      });
+    }
+
+    res.json({
+      message: `Successfully inwarded ${scanList.length} items to inventory!`,
+      items: updatedItems,
+      skipped: skippedBarcodes
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Error linking barcode and adding stock', error: error.message });
+    res.status(500).json({ message: 'Error committing bulk stock inward', error: error.message });
   }
 });
+
 
 router.get('/categories-units', protect, async (req, res) => {
   try {

@@ -22,7 +22,10 @@ import {
   FileText,
   Receipt,
   Camera,
-  Globe
+  Globe,
+  AlertCircle,
+  AlertTriangle,
+  X
 } from 'lucide-react';
 import CameraBarcodeScanner from '../components/CameraBarcodeScanner';
 
@@ -84,6 +87,21 @@ export default function NewBill() {
   const barcodeBufferRef = useRef('');
   const lastKeyTimeRef = useRef(0);
 
+  // Toast notifications for scanner errors and alerts
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (message, type = 'error', duration = 3500) => {
+    const id = Date.now() + Math.random().toString(36).substring(2, 6);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, duration);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
   // Sound feedback on scan add
   const playScanBeep = () => {
     try {
@@ -98,6 +116,24 @@ export default function NewBill() {
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.08);
+    } catch {}
+  };
+
+  // Warning buzz when barcode is not found or out of stock
+  const playWarningBeep = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(300, ctx.currentTime);
+      osc.frequency.setValueAtTime(200, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.28);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.28);
     } catch {}
   };
 
@@ -210,24 +246,37 @@ export default function NewBill() {
     );
 
     if (matched) {
-      playScanBeep();
+      if (matched.currentStock <= 0) {
+        playWarningBeep();
+        showToast(`Stock not available! "${getItemDisplayName(matched)}" has 0 stock.`, 'warning');
+      } else {
+        playScanBeep();
+      }
       handleItemClick(matched);
       setSearchQuery('');
     } else {
-      // Dynamic fallback search
+      // Dynamic fallback search from server
       axios.get(`/api/items/barcode/${encodeURIComponent(code)}`)
         .then(res => {
           if (res.data) {
-            playScanBeep();
-            handleItemClick(res.data);
+            const serverItem = res.data;
+            if (serverItem.currentStock <= 0) {
+              playWarningBeep();
+              showToast(`Stock not available! "${getItemDisplayName(serverItem)}" has 0 stock.`, 'warning');
+            } else {
+              playScanBeep();
+            }
+            handleItemClick(serverItem);
             setSearchQuery('');
-            setAllItems(prev => [...prev.filter(x => x._id !== res.data._id), res.data]);
+            setAllItems(prev => [...prev.filter(x => x._id !== serverItem._id), serverItem]);
           } else {
-            alert(`No item found for barcode "${rawCode}".`);
+            playWarningBeep();
+            showToast(`Item / Stock not exist in database for barcode: "${rawCode}"!`, 'error');
           }
         })
         .catch(() => {
-          alert(`Item with barcode "${rawCode}" not found.`);
+          playWarningBeep();
+          showToast(`Item / Stock not exist in database for barcode: "${rawCode}"!`, 'error');
         });
     }
   };
@@ -294,7 +343,37 @@ export default function NewBill() {
   };
 
   return (
-    <div className="p-2 sm:p-4 max-w-7xl mx-auto h-[calc(100vh-65px)] flex flex-col pb-20 md:pb-2">
+    <div className="p-2 sm:p-4 max-w-7xl mx-auto h-[calc(100vh-65px)] flex flex-col pb-20 md:pb-2 relative">
+      
+      {/* Toast Notification Container (Fixed Top Right) */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md w-full pointer-events-none px-3">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className={`pointer-events-auto flex items-start justify-between gap-3 p-3.5 rounded-2xl shadow-xl border text-xs sm:text-sm font-bold backdrop-blur-md transition-all transform animate-in slide-in-from-top-3 duration-200 ${
+              t.type === 'error'
+                ? 'bg-red-50/95 border-red-300 text-red-950 shadow-red-500/10'
+                : t.type === 'warning'
+                ? 'bg-amber-50/95 border-amber-300 text-amber-950 shadow-amber-500/10'
+                : 'bg-emerald-50/95 border-emerald-300 text-emerald-950 shadow-emerald-500/10'
+            }`}
+          >
+            <div className="flex items-start gap-2.5">
+              {t.type === 'error' && <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />}
+              {t.type === 'warning' && <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />}
+              {t.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />}
+              <span>{t.message}</span>
+            </div>
+            <button
+              onClick={() => removeToast(t.id)}
+              className="p-1 hover:bg-black/5 rounded-lg text-slate-500 hover:text-slate-800 transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
         
         {/* LEFT COLUMN: Catalog, Quick Items & Item Search (lg:col-span-7) */}

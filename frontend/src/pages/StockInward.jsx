@@ -25,7 +25,8 @@ import {
   ChevronDown,
   Layers,
   Globe,
-  Trash2
+  Trash2,
+  Scale
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
@@ -89,6 +90,8 @@ export default function StockInward() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [costPrice, setCostPrice] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
+  const [directQty, setDirectQty] = useState('');
+  const [inwardTab, setInwardTab] = useState('direct'); // 'direct' (weight / loose / bulk) or 'scanner' (camera / barcode)
   const [submitting, setSubmitting] = useState(false);
   
   // Continuous Camera & Feedback States
@@ -131,15 +134,92 @@ export default function StockInward() {
   useEffect(() => {
     if (!selectedItemId) {
       setSelectedItem(null);
+      setDirectQty('');
       return;
     }
     const found = allItems.find(i => i._id === selectedItemId);
     if (found) {
       setSelectedItem(found);
-      setCostPrice(found.purchasePrice || '');
-      setSellingPrice(found.sellingPrice || '');
+      setCostPrice(found.purchasePrice !== undefined && found.purchasePrice !== null ? String(found.purchasePrice) : '');
+      setSellingPrice(found.sellingPrice !== undefined && found.sellingPrice !== null ? String(found.sellingPrice) : '');
+      setDirectQty('');
+      if (['kg', 'gram', 'litre', 'ml'].includes(found.unit?.toLowerCase()) || !found.barcode) {
+        setInwardTab('direct');
+      } else {
+        setInwardTab('scanner');
+      }
     }
   }, [selectedItemId, allItems]);
+
+  // Direct 1-Click Stock Inward (Immediate update of stock & daily purchase/selling rates)
+  const handleDirectInward = async (e) => {
+    e?.preventDefault();
+    if (!selectedItem) {
+      toast.warning('Please select a product on the left first');
+      return;
+    }
+    const qty = parseFloat(directQty);
+    if (!qty || qty <= 0) {
+      toast.warning('Please enter a valid quantity to inward');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const pCost = costPrice !== '' ? Number(costPrice) : (selectedItem.purchasePrice || 0);
+      const sRate = sellingPrice !== '' ? Number(sellingPrice) : (selectedItem.sellingPrice || 0);
+
+      const res = await axios.post('/api/items/link-barcode-stock', {
+        itemId: selectedItem._id,
+        quantity: qty,
+        costPrice: pCost,
+        sellingPrice: sRate,
+        note: `Direct Inward: +${qty} ${selectedItem.unit} (Cost: ₹${pCost}, Sell: ₹${sRate})`
+      });
+
+      playSuccessSound();
+      toast.success(`Success! Added +${qty} ${selectedItem.unit} to "${getItemDisplayName(selectedItem)}". Live Stock: ${res.data.item.currentStock} ${selectedItem.unit}. Rates updated!`);
+      setSelectedItem(res.data.item);
+      setDirectQty('');
+      await loadAllItems();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error updating stock');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Stage direct loose quantity into the bulk table
+  const handleStageDirectInward = (e) => {
+    e?.preventDefault();
+    if (!selectedItem) {
+      toast.warning('Please select a product on the left first');
+      return;
+    }
+    const qty = parseFloat(directQty);
+    if (!qty || qty <= 0) {
+      toast.warning('Please enter a valid quantity to stage');
+      return;
+    }
+
+    playBeep();
+    const newEntry = {
+      id: Date.now() + Math.random().toString(36).substring(2, 7),
+      itemId: selectedItem._id,
+      itemName: getItemDisplayName(selectedItem),
+      originalName: selectedItem.name,
+      unit: selectedItem.unit,
+      quantity: qty,
+      barcode: '', // non-barcode loose stock
+      costPrice: costPrice !== '' ? Number(costPrice) : (selectedItem.purchasePrice || 0),
+      sellingPrice: sellingPrice !== '' ? Number(sellingPrice) : (selectedItem.sellingPrice || 0),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    };
+
+    setScanQueue(prev => [newEntry, ...prev]);
+    toast.success(`Staged: +${qty} ${selectedItem.unit} for "${getItemDisplayName(selectedItem)}" in table`);
+    setDirectQty('');
+  };
 
   // Toast Helper
   const showToast = (message, type = 'info', duration = 3500) => {
@@ -983,126 +1063,319 @@ export default function StockInward() {
 
         </div>
 
-        {/* RIGHT COLUMN: Continuous Camera Viewfinder & Barcode Input (lg:col-span-7) */}
-        <div className="lg:col-span-7 space-y-4">
+        {/* RIGHT COLUMN: Dual Method Inwarding (lg:col-span-7) */}
+        <div className="lg:col-span-7 space-y-3">
           
-          {/* Continuous Camera Viewfinder Screen */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                <Camera className="w-4 h-4 text-brand-600" />
-                Step 2: Instant Camera Scanner (1 Barcode = 1 Stock)
-              </label>
+          {/* Mode Switcher Tabs */}
+          <div className="bg-white p-1 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setInwardTab('direct')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-black transition ${
+                inwardTab === 'direct'
+                  ? 'bg-brand-500 text-slate-950 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Scale className="w-4 h-4" />
+              <span>Weight &amp; Daily Rates (Vegetables / Loose kg)</span>
+            </button>
 
-              <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setInwardTab('scanner')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-black transition ${
+                inwardTab === 'scanner'
+                  ? 'bg-brand-500 text-slate-950 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Camera className="w-4 h-4" />
+              <span>Barcode Scanner (Packets / Products)</span>
+            </button>
+          </div>
+
+          {/* TAB 1: Weight & Daily Rates Inward Panel (Vegetables, Fruits, Loose Grains, Custom Quantities) */}
+          {inwardTab === 'direct' && (
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                    <Scale className="w-4 h-4 text-brand-600" />
+                    Step 2: Enter Purchase Quantity &amp; Set Today's Rates
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Set today's mandi wholesale purchase price, purchased kg, and retail selling rate
+                  </p>
+                </div>
+                {selectedItem && (
+                  <span className="px-2.5 py-1 bg-brand-50 border border-brand-200 text-brand-900 rounded-lg text-xs font-bold font-mono">
+                    Unit: {selectedItem.unit}
+                  </span>
+                )}
+              </div>
+
+              {!selectedItem ? (
+                <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-slate-400 space-y-2">
+                  <Package className="w-8 h-8 mx-auto text-slate-300" />
+                  <p className="font-bold text-slate-700 text-sm">Please select a product on the left first</p>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    Search and pick Tomato, Onion, Potato or any product in Step 1 to add purchased stock.
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleDirectInward} className="space-y-4">
+                  {/* Selected Product Banner */}
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Selected Product</span>
+                      <h4 className="text-base font-black text-slate-900 mt-0.5">
+                        {getItemDisplayName(selectedItem)}
+                        {currentLang !== 'en' && selectedItem.translations?.[currentLang] && (
+                          <span className="text-xs font-normal text-slate-500 ml-1.5">({selectedItem.name})</span>
+                        )}
+                      </h4>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Current Live Stock</span>
+                      <span className="text-base font-black font-mono text-brand-700">
+                        {selectedItem.currentStock} {selectedItem.unit}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Quantity Inwarded */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        Quantity Purchased *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step={selectedItem.allowDecimals || ['kg', 'gram', 'litre', 'ml'].includes(selectedItem.unit?.toLowerCase()) ? '0.001' : '1'}
+                          min="0.001"
+                          required
+                          autoFocus
+                          value={directQty}
+                          onChange={(e) => setDirectQty(e.target.value)}
+                          placeholder="e.g. 25"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono font-black text-base focus:outline-none focus:border-brand-500 shadow-2xs"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 uppercase">
+                          {selectedItem.unit}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Purchase Cost Price */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        Wholesale Cost (₹/{selectedItem.unit})
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={costPrice}
+                          onChange={(e) => setCostPrice(e.target.value)}
+                          placeholder={String(selectedItem.purchasePrice || '0.00')}
+                          className="w-full pl-7 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono font-bold text-base focus:outline-none focus:border-brand-500 shadow-2xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Today's Selling Rate */}
+                    <div>
+                      <label className="block text-xs font-black text-brand-800 uppercase tracking-wider mb-1">
+                        Today's Selling Rate (₹/{selectedItem.unit}) *
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-brand-600">₹</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          required
+                          value={sellingPrice}
+                          onChange={(e) => setSellingPrice(e.target.value)}
+                          placeholder={String(selectedItem.sellingPrice || '0.00')}
+                          className="w-full pl-7 pr-3 py-2 bg-brand-50/50 border-2 border-brand-500 rounded-xl text-brand-950 font-mono font-black text-base focus:outline-none focus:border-brand-600 shadow-2xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Calculations Preview */}
+                  {directQty && (
+                    <div className="p-3 bg-brand-50 border border-brand-200 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs animate-in fade-in">
+                      <div>
+                        <span className="text-slate-500 font-medium">Total Inward Cost: </span>
+                        <strong className="text-slate-900 font-mono font-black">
+                          ₹{((parseFloat(directQty) || 0) * (parseFloat(costPrice) || 0)).toFixed(2)}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 font-medium">New Total Stock: </span>
+                        <strong className="text-brand-800 font-mono font-black">
+                          {(parseFloat(selectedItem.currentStock || 0) + (parseFloat(directQty) || 0)).toFixed(2)} {selectedItem.unit}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 font-medium">Selling Rate Updated to: </span>
+                        <strong className="text-brand-900 font-mono font-black">
+                          ₹{parseFloat(sellingPrice || selectedItem.sellingPrice || 0).toFixed(2)} / {selectedItem.unit}
+                        </strong>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={handleStageDirectInward}
+                      disabled={!directQty}
+                      className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition active:scale-98 disabled:opacity-50"
+                    >
+                      + Stage to Table Below
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={submitting || !directQty}
+                      className="w-full sm:w-auto px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-slate-950 font-black rounded-xl text-xs sm:text-sm transition shadow-xs flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>{submitting ? 'Updating...' : `+ Inward ${directQty || '0'} ${selectedItem.unit} Directly`}</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: Continuous Camera Scanner (Packets & Barcode Items) */}
+          {inwardTab === 'scanner' && (
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <Camera className="w-4 h-4 text-brand-600" />
+                  Step 2: Instant Camera Scanner (1 Barcode = 1 Stock)
+                </label>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleToggleFacingMode}
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-brand-100 text-slate-800 hover:text-brand-900 border border-slate-300 hover:border-brand-300 rounded-lg text-xs font-bold transition flex items-center gap-1 active:scale-95"
+                    title="Switch between Rear and Front camera"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-brand-600" />
+                    <span>{facingMode === 'environment' ? '📷 Rear (Back)' : '🤳 Front (Selfie)'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="relative rounded-2xl overflow-hidden bg-black border border-slate-300 shadow-inner min-h-[220px] sm:min-h-[260px] flex items-center justify-center">
+                <video 
+                  ref={videoRef} 
+                  playsInline 
+                  muted 
+                  autoPlay 
+                  className="w-full h-full object-cover min-h-[220px] sm:min-h-[260px] max-h-[340px]" 
+                />
+
+                {/* Aiming Reticle Laser Overlay */}
+                <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+                  <div className="w-64 sm:w-80 h-28 sm:h-36 border-2 border-brand-400/90 rounded-2xl relative shadow-lg shadow-brand-500/20">
+                    <div className="absolute -top-1 -left-1 w-4 h-4 border-t-4 border-l-4 border-brand-400 rounded-tl-lg" />
+                    <div className="absolute -top-1 -right-1 w-4 h-4 border-t-4 border-r-4 border-brand-400 rounded-tr-lg" />
+                    <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-4 border-l-4 border-brand-400 rounded-bl-lg" />
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-4 border-r-4 border-brand-400 rounded-br-lg" />
+
+                    {/* Laser scan line */}
+                    <div className="absolute left-2 right-2 top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-transparent via-brand-400 to-transparent animate-pulse shadow-[0_0_8px_#84cc16]" />
+                  </div>
+                </div>
+
+                {/* Status Header Overlay */}
+                <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
+                  <span className="px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-xs text-[10px] font-bold text-white flex items-center gap-1 border border-white/10">
+                    <Zap className="w-3.5 h-3.5 text-brand-400 fill-brand-400" />
+                    Continuous Auto-Capture Ready
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-brand-500 text-slate-950 font-mono font-bold text-xs">
+                    {scanQueue.length} staged
+                  </span>
+                </div>
+
+                {cameraError && (
+                  <div className="absolute inset-0 bg-slate-950/95 p-4 flex flex-col items-center justify-center text-center text-white z-20">
+                    <div className="p-3 bg-brand-500/10 rounded-2xl mb-2 text-brand-400">
+                      <Camera className="w-8 h-8" />
+                    </div>
+                    <p className="text-sm font-black text-white mb-1">Camera Permission Required</p>
+                    <p className="text-xs text-slate-300 max-w-xs mb-3">{cameraError}</p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setCameraError('');
+                        if (navigator.mediaDevices?.getUserMedia) {
+                          try {
+                            const s = await navigator.mediaDevices.getUserMedia({ video: true });
+                            s.getTracks().forEach(t => t.stop());
+                            window.location.reload();
+                          } catch (e) {
+                            setCameraError('Permission was rejected. Please enable camera in your browser site settings.');
+                          }
+                        }
+                      }}
+                      className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-slate-950 font-black rounded-xl text-xs transition shadow-xs flex items-center gap-1.5 active:scale-95"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>Tap to Allow Camera Permission</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Manual Barcode Input Fallback */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Barcode className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={manualBarcode}
+                    onChange={(e) => setManualBarcode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleIncomingScan(manualBarcode);
+                        setManualBarcode('');
+                      }
+                    }}
+                    placeholder="Scan barcode or type & hit Enter..."
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono text-xs sm:text-sm font-bold focus:outline-none focus:border-brand-500"
+                  />
+                </div>
+
                 <button
                   type="button"
-                  onClick={handleToggleFacingMode}
-                  className="px-2.5 py-1 bg-slate-100 hover:bg-brand-100 text-slate-800 hover:text-brand-900 border border-slate-300 hover:border-brand-300 rounded-lg text-xs font-bold transition flex items-center gap-1 active:scale-95"
-                  title="Switch between Rear and Front camera"
+                  onClick={() => {
+                    handleIncomingScan(manualBarcode);
+                    setManualBarcode('');
+                  }}
+                  disabled={!manualBarcode.trim()}
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-slate-950 font-black rounded-xl text-xs transition disabled:opacity-50"
                 >
-                  <RefreshCw className="w-3.5 h-3.5 text-brand-600" />
-                  <span>{facingMode === 'environment' ? '📷 Rear (Back)' : '🤳 Front (Selfie)'}</span>
+                  + Add Barcode
                 </button>
               </div>
             </div>
-
-            <div className="relative rounded-2xl overflow-hidden bg-black border border-slate-300 shadow-inner min-h-[220px] sm:min-h-[260px] flex items-center justify-center">
-              <video 
-                ref={videoRef} 
-                playsInline 
-                muted 
-                autoPlay 
-                className="w-full h-full object-cover min-h-[220px] sm:min-h-[260px] max-h-[340px]" 
-              />
-
-              {/* Aiming Reticle Laser Overlay */}
-              <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-                <div className="w-64 sm:w-80 h-28 sm:h-36 border-2 border-brand-400/90 rounded-2xl relative shadow-lg shadow-brand-500/20">
-                  <div className="absolute -top-1 -left-1 w-4 h-4 border-t-4 border-l-4 border-brand-400 rounded-tl-lg" />
-                  <div className="absolute -top-1 -right-1 w-4 h-4 border-t-4 border-r-4 border-brand-400 rounded-tr-lg" />
-                  <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-4 border-l-4 border-brand-400 rounded-bl-lg" />
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-4 border-r-4 border-brand-400 rounded-br-lg" />
-
-                  {/* Laser scan line */}
-                  <div className="absolute left-2 right-2 top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-transparent via-brand-400 to-transparent animate-pulse shadow-[0_0_8px_#84cc16]" />
-                </div>
-              </div>
-
-              {/* Status Header Overlay */}
-              <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
-                <span className="px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-xs text-[10px] font-bold text-white flex items-center gap-1 border border-white/10">
-                  <Zap className="w-3.5 h-3.5 text-brand-400 fill-brand-400" />
-                  Continuous Auto-Capture Ready
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-brand-500 text-slate-950 font-mono font-bold text-xs">
-                  {scanQueue.length} scanned
-                </span>
-              </div>
-
-              {cameraError && (
-                <div className="absolute inset-0 bg-slate-950/95 p-4 flex flex-col items-center justify-center text-center text-white z-20">
-                  <div className="p-3 bg-brand-500/10 rounded-2xl mb-2 text-brand-400">
-                    <Camera className="w-8 h-8" />
-                  </div>
-                  <p className="text-sm font-black text-white mb-1">Camera Permission Required</p>
-                  <p className="text-xs text-slate-300 max-w-xs mb-3">{cameraError}</p>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setCameraError('');
-                      if (navigator.mediaDevices?.getUserMedia) {
-                        try {
-                          const s = await navigator.mediaDevices.getUserMedia({ video: true });
-                          s.getTracks().forEach(t => t.stop());
-                          window.location.reload();
-                        } catch (e) {
-                          setCameraError('Permission was rejected. Please enable camera in your browser site settings.');
-                        }
-                      }
-                    }}
-                    className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-slate-950 font-black rounded-xl text-xs transition shadow-xs flex items-center gap-1.5 active:scale-95"
-                  >
-                    <Camera className="w-4 h-4" />
-                    <span>Tap to Allow Camera Permission</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Manual Barcode Input Fallback */}
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Barcode className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={manualBarcode}
-                  onChange={(e) => setManualBarcode(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleIncomingScan(manualBarcode);
-                      setManualBarcode('');
-                    }
-                  }}
-                  placeholder="Scan barcode or type & hit Enter..."
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono text-xs sm:text-sm font-bold focus:outline-none focus:border-brand-500"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  handleIncomingScan(manualBarcode);
-                  setManualBarcode('');
-                }}
-                disabled={!manualBarcode.trim()}
-                className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-slate-950 font-black rounded-xl text-xs transition disabled:opacity-50"
-              >
-                + Add Barcode
-              </button>
-            </div>
-          </div>
+          )}
 
         </div>
 
@@ -1114,10 +1387,10 @@ export default function StockInward() {
           <div>
             <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
               <Layers className="w-4 h-4 text-brand-600" />
-              Scanned Stock Inward Table ({scanQueue.length} items staged)
+              Staged Stock Inward Table ({scanQueue.length} entries staged)
             </h3>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Review all scanned packets below. Each unique barcode equals 1 stock unit. Click "Create &amp; Update Stock" to commit.
+              Review all inward batches below (vegetable weights, packets and scanned barcodes). Click "Create &amp; Update Stock" to commit.
             </p>
           </div>
 
@@ -1140,17 +1413,17 @@ export default function StockInward() {
               className="px-5 py-2.5 bg-brand-500 hover:bg-brand-400 active:scale-95 text-slate-950 font-black rounded-xl text-xs sm:text-sm transition shadow-xs disabled:opacity-40 flex items-center gap-2"
             >
               <Check className="w-4 h-4" />
-              <span>{submitting ? 'Creating Stock...' : `Create & Update Stock (${scanQueue.length})`}</span>
+              <span>{submitting ? 'Creating Stock...' : `Commit All Stock (${scanQueue.length} entries)`}</span>
             </button>
           </div>
         </div>
 
         {scanQueue.length === 0 ? (
           <div className="p-8 text-center text-slate-400 space-y-2">
-            <Barcode className="w-10 h-10 mx-auto text-slate-300 stroke-1" />
-            <p className="text-sm font-bold text-slate-600">No items scanned yet</p>
+            <Scale className="w-10 h-10 mx-auto text-slate-300 stroke-1" />
+            <p className="text-sm font-bold text-slate-600">No stock entries staged yet</p>
             <p className="text-xs max-w-sm mx-auto text-slate-400">
-              Select an item above and point the camera to barcodes. Each scan automatically adds 1 item to this table without asking confirmation!
+              Select a product above to add purchased weight/quantity, or point camera to barcodes.
             </p>
           </div>
         ) : (
@@ -1160,10 +1433,11 @@ export default function StockInward() {
                 <tr>
                   <th className="py-2.5 px-3">#</th>
                   <th className="py-2.5 px-3">Item Name</th>
-                  <th className="py-2.5 px-3">Scanned Barcode / QR</th>
-                  <th className="py-2.5 px-3 text-center">Qty</th>
+                  <th className="py-2.5 px-3">Barcode / Batch Type</th>
+                  <th className="py-2.5 px-3 text-center">Quantity to Add</th>
+                  <th className="py-2.5 px-3 text-right">Cost Price</th>
                   <th className="py-2.5 px-3 text-right">Selling Price</th>
-                  <th className="py-2.5 px-3">Scanned Time</th>
+                  <th className="py-2.5 px-3 text-right">Total Cost</th>
                   <th className="py-2.5 px-3 text-center">Action</th>
                 </tr>
               </thead>
@@ -1177,20 +1451,29 @@ export default function StockInward() {
                       {item.itemName}
                     </td>
                     <td className="py-2.5 px-3">
-                      <span className="font-mono bg-slate-100 text-slate-900 px-2 py-0.5 rounded border border-slate-200 font-bold text-xs">
-                        {item.barcode}
-                      </span>
+                      {item.barcode ? (
+                        <span className="font-mono bg-slate-100 text-slate-900 px-2 py-0.5 rounded border border-slate-200 font-bold text-xs">
+                          {item.barcode}
+                        </span>
+                      ) : (
+                        <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 font-bold px-2 py-0.5 rounded text-[10px]">
+                          Loose Stock ({item.unit})
+                        </span>
+                      )}
                     </td>
                     <td className="py-2.5 px-3 text-center font-black text-brand-800">
                       <span className="px-2 py-0.5 bg-brand-100 border border-brand-300 rounded font-mono">
-                        +1 {item.unit}
+                        +{item.quantity || 1} {item.unit}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 text-right font-bold text-slate-900">
-                      ₹{item.sellingPrice}
+                    <td className="py-2.5 px-3 text-right font-mono text-slate-600">
+                      ₹{Number(item.costPrice || 0).toFixed(2)}
                     </td>
-                    <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px]">
-                      {item.timestamp}
+                    <td className="py-2.5 px-3 text-right font-bold text-slate-900">
+                      ₹{Number(item.sellingPrice || 0).toFixed(2)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-black text-slate-900 font-mono">
+                      ₹{((Number(item.quantity || 1)) * Number(item.costPrice || 0)).toFixed(2)}
                     </td>
                     <td className="py-2.5 px-3 text-center">
                       <button

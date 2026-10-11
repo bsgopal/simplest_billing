@@ -272,22 +272,33 @@ router.post('/bulk-barcode-inward', protect, async (req, res) => {
     const updatedItems = [];
     const skippedBarcodes = [];
 
-    // Group scanned barcodes by itemId
+    // Group scanned barcodes and loose quantities by itemId
     const grouped = {};
     for (const entry of scanList) {
-      const { itemId, barcode } = entry;
+      const { itemId, barcode, quantity } = entry;
       const cleanBarcode = barcode ? barcode.trim() : '';
-      if (!itemId || !cleanBarcode) continue;
+      if (!itemId) continue;
 
       if (!grouped[itemId]) {
         grouped[itemId] = {
           itemId,
           barcodes: new Set(),
+          looseQty: 0,
           costPrice: entry.costPrice,
           sellingPrice: entry.sellingPrice
         };
       }
-      grouped[itemId].barcodes.add(cleanBarcode);
+      if (cleanBarcode) {
+        grouped[itemId].barcodes.add(cleanBarcode);
+      } else {
+        grouped[itemId].looseQty += (parseFloat(quantity) || 1);
+      }
+      if (entry.costPrice !== undefined && entry.costPrice !== '') {
+        grouped[itemId].costPrice = entry.costPrice;
+      }
+      if (entry.sellingPrice !== undefined && entry.sellingPrice !== '') {
+        grouped[itemId].sellingPrice = entry.sellingPrice;
+      }
     }
 
     for (const grp of Object.values(grouped)) {
@@ -295,15 +306,18 @@ router.post('/bulk-barcode-inward', protect, async (req, res) => {
       if (!item) continue;
 
       const barcodesToAdd = Array.from(grp.barcodes);
-      const qtyToAdd = barcodesToAdd.length; // 1 stock per unique scanned barcode
+      const qtyToAdd = barcodesToAdd.length + grp.looseQty;
+      if (qtyToAdd <= 0) continue;
 
       const updateOps = {
-        $inc: { currentStock: qtyToAdd },
-        $addToSet: { barcodes: { $each: barcodesToAdd } }
+        $inc: { currentStock: qtyToAdd }
       };
 
-      if (!item.barcode && barcodesToAdd.length > 0) {
-        updateOps.$set = { barcode: barcodesToAdd[0] };
+      if (barcodesToAdd.length > 0) {
+        updateOps.$addToSet = { barcodes: { $each: barcodesToAdd } };
+        if (!item.barcode) {
+          updateOps.$set = { barcode: barcodesToAdd[0] };
+        }
       }
 
       if (grp.costPrice !== undefined && grp.costPrice !== '') {
@@ -317,7 +331,7 @@ router.post('/bulk-barcode-inward', protect, async (req, res) => {
       updatedItems.push(updated);
 
       await models.AuditLog.create({
-        action: 'BULK_STOCK_INWARD_BARCODE',
+        action: 'BULK_STOCK_INWARD',
         entity: 'Item',
         entityId: grp.itemId,
         details: {

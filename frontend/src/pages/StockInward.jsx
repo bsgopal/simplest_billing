@@ -37,6 +37,7 @@ export default function StockInward() {
 
   const [activeLang, setActiveLang] = useState('en'); // en, ta, hi, te, kn, ml
   const [categories, setCategories] = useState([]);
+  const [units, setUnits] = useState([]);
 
   // Staged Bulk Inward Queue (1 barcode = 1 stock unit)
   const [scanQueue, setScanQueue] = useState([]);
@@ -110,6 +111,7 @@ export default function StockInward() {
       const items = itemsRes.data || [];
       setAllItems(items);
       setCategories(catsRes.data?.categories || []);
+      setUnits(catsRes.data?.units || []);
       return items;
     } catch (err) {
       console.error('Error fetching items for stock inward:', err);
@@ -795,19 +797,40 @@ export default function StockInward() {
                     <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-0.5">
                       Unit
                     </label>
-                    <select
-                      value={newItemForm.unit}
-                      onChange={(e) => setNewItemForm({ ...newItemForm, unit: e.target.value })}
-                      className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-xs font-bold focus:outline-none focus:border-brand-500"
-                    >
-                      <option value="pcs">Pieces (pcs)</option>
-                      <option value="packet">Packet (pkt)</option>
-                      <option value="kg">Kilogram (kg)</option>
-                      <option value="gram">Gram (g)</option>
-                      <option value="bottle">Bottle</option>
-                      <option value="box">Box</option>
-                      <option value="litre">Litre (L)</option>
-                    </select>
+                    <div className="flex gap-1">
+                      <select
+                        value={newItemForm.unit}
+                        onChange={(e) => {
+                          if (e.target.value === '__add_new__') {
+                            const newU = prompt('Enter new custom unit name (e.g. meter, tin, bundle, sack):');
+                            if (newU && newU.trim()) {
+                              const cleanU = newU.trim().toLowerCase();
+                              axios.post('/api/items/units', { name: cleanU })
+                                .then(res => {
+                                  setUnits(res.data?.units || [...units, { name: cleanU }]);
+                                  setNewItemForm({ ...newItemForm, unit: cleanU });
+                                  showToast(`Unit "${cleanU}" added!`, 'success');
+                                })
+                                .catch(() => {
+                                  setUnits(prev => [...prev, { name: cleanU }]);
+                                  setNewItemForm({ ...newItemForm, unit: cleanU });
+                                });
+                            }
+                          } else {
+                            setNewItemForm({ ...newItemForm, unit: e.target.value });
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-xs font-bold focus:outline-none focus:border-brand-500"
+                      >
+                        {units.map((u) => {
+                          const uName = typeof u === 'string' ? u : u.name;
+                          return (
+                            <option key={uName} value={uName}>{uName}</option>
+                          );
+                        })}
+                        <option value="__add_new__">+ Add New Custom Unit...</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 

@@ -308,16 +308,84 @@ router.get('/categories-units', protect, async (req, res) => {
     res.json({
       categories: allCategories,
       categoryDetails: categoryDocs,
-      units: settings?.units && settings.units.length > 0 ? settings.units : [
-        { name: 'pcs', allowDecimals: false },
-        { name: 'kg', allowDecimals: true },
-        { name: 'gram', allowDecimals: false },
-        { name: 'packet', allowDecimals: false },
-        { name: 'litre', allowDecimals: true }
-      ]
+    // Dynamic units unified from settings and all items in DB (not hardcoded/enum)
+    const itemUnits = await models.Item.distinct('unit', { isActive: true });
+    const configuredUnits = (settings?.units && settings.units.length > 0) ? settings.units : [
+      { name: 'pcs', allowDecimals: false },
+      { name: 'kg', allowDecimals: true },
+      { name: 'gram', allowDecimals: false },
+      { name: 'packet', allowDecimals: false },
+      { name: 'bottle', allowDecimals: false },
+      { name: 'box', allowDecimals: false },
+      { name: 'litre', allowDecimals: true },
+      { name: 'meter', allowDecimals: true }
+    ];
+
+    const unitMap = new Map();
+    configuredUnits.forEach(u => unitMap.set(u.name.toLowerCase(), u));
+    (itemUnits || []).forEach(uName => {
+      if (uName && !unitMap.has(uName.toLowerCase())) {
+        unitMap.set(uName.toLowerCase(), {
+          name: uName,
+          allowDecimals: ['kg', 'litre', 'meter', 'gram'].includes(uName.toLowerCase())
+        });
+      }
+    });
+
+    res.json({
+      categories: allCategories,
+      categoryDetails: categoryDocs,
+      units: Array.from(unitMap.values())
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching categories and units', error: error.message });
+  }
+});
+
+// Create/Register a new custom unit (Dynamic, not an enum)
+router.post('/units', protect, async (req, res) => {
+  try {
+    const { name, allowDecimals = false } = req.body;
+    const cleanName = String(name || '').trim().toLowerCase();
+    if (!cleanName) {
+      return res.status(400).json({ message: 'Unit name is required' });
+    }
+
+    const models = getTenantDb(req.customerCode);
+    let settings = await models.ShopSetting.findOne();
+    if (!settings) {
+      settings = await models.ShopSetting.create({});
+    }
+
+    const exists = (settings.units || []).some(u => u.name.toLowerCase() === cleanName);
+    if (!exists) {
+      settings.units.push({ name: cleanName, allowDecimals: Boolean(allowDecimals) });
+      await settings.save();
+    }
+
+    res.json({
+      message: 'Unit saved successfully',
+      unit: { name: cleanName, allowDecimals: Boolean(allowDecimals) },
+      units: settings.units
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error saving unit', error: error.message });
+  }
+});
+
+// Delete a custom unit
+router.delete('/units/:name', protect, async (req, res) => {
+  try {
+    const unitName = decodeURIComponent(req.params.name).trim().toLowerCase();
+    const models = getTenantDb(req.customerCode);
+    let settings = await models.ShopSetting.findOne();
+    if (settings && settings.units) {
+      settings.units = settings.units.filter(u => u.name.toLowerCase() !== unitName);
+      await settings.save();
+    }
+    res.json({ message: `Unit ${unitName} removed`, units: settings?.units || [] });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting unit', error: error.message });
   }
 });
 

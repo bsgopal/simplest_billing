@@ -523,12 +523,34 @@ export default function Items() {
                   <label className="text-xs font-bold text-slate-700 block mb-1">Unit *</label>
                   <select
                     value={formData.unit}
-                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                    onChange={(e) => {
+                      if (e.target.value === '__add_new__') {
+                        const newU = prompt('Enter new custom unit name (e.g. meter, tin, bundle, sack):');
+                        if (newU && newU.trim()) {
+                          const cleanU = newU.trim().toLowerCase();
+                          axios.post('/api/items/units', { name: cleanU })
+                            .then(res => {
+                              setUnits(res.data?.units || [...units, { name: cleanU }]);
+                              setFormData({ ...formData, unit: cleanU });
+                            })
+                            .catch(() => {
+                              setUnits(prev => [...prev, { name: cleanU }]);
+                              setFormData({ ...formData, unit: cleanU });
+                            });
+                        }
+                      } else {
+                        setFormData({ ...formData, unit: e.target.value });
+                      }
+                    }}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-hidden"
                   >
-                    {units.map((u) => (
-                      <option key={u.name} value={u.name}>{u.name}</option>
-                    ))}
+                    {units.map((u) => {
+                      const uName = typeof u === 'string' ? u : u.name;
+                      return (
+                        <option key={uName} value={uName}>{uName}</option>
+                      );
+                    })}
+                    <option value="__add_new__">+ Add New Custom Unit...</option>
                   </select>
                 </div>
               </div>

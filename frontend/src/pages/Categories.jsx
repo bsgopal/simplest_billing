@@ -22,7 +22,7 @@ import { useToast } from '../context/ToastContext';
 import TransliterateInput from '../components/TransliterateInput';
 
 export default function Categories() {
-  const { currentLang, transliterateWord } = useLanguage();
+  const { currentLang, transliterateWord, getLanguageInfo } = useLanguage();
   const { toast, confirm } = useToast();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -444,17 +444,26 @@ export default function Categories() {
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Category Name *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Category Name *
+                  </label>
+                  <span className="text-[10px] font-bold text-brand-800 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                    <Globe className="w-3 h-3 text-brand-600" />
+                    <span>Active Language: {getLanguageInfo?.()?.native || 'தமிழ்'}</span>
+                  </span>
+                </div>
                 <TransliterateInput
                   required
                   autoFocus
-                  placeholder="e.g. Grocery, Snacks, Vegetables..."
+                  placeholder={currentLang === 'ta' ? "e.g. thayir, kaaikari, pazham..." : "e.g. Dairy, Grocery..."}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm font-bold focus:outline-none focus:border-brand-500"
                 />
+                <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                  Type in English (e.g. <span className="font-mono text-slate-700 font-bold">thayir</span>) — converts automatically to <span className="font-bold text-slate-900">{getLanguageInfo?.()?.native || 'தமிழ்'}</span>.
+                </p>
               </div>
 
               <div>

@@ -32,7 +32,7 @@ export default function Settings() {
   const [newStaff, setNewStaff] = useState({ name: '', role: 'CASHIER', pin: '' });
 
   // Language & Phonetic Settings
-  const { currentLang, setCurrentLang, phoneticEnabled, setPhoneticEnabled, languageList } = useLanguage();
+  const { currentLang, selectLanguage, phoneticEnabled, setPhoneticEnabled, languageList } = useLanguage();
   const [testTyping, setTestTyping] = useState('');
 
   useEffect(() => {
@@ -317,7 +317,7 @@ export default function Settings() {
                 <button
                   key={lang.code}
                   type="button"
-                  onClick={() => setCurrentLang(lang.code)}
+                  onClick={() => selectLanguage(lang.code)}
                   className={`p-4 rounded-xl border text-left transition flex flex-col justify-between ${
                     isSelected
                       ? 'bg-lime-500/10 border-lime-400 shadow-md shadow-lime-500/10'
@@ -354,7 +354,11 @@ export default function Settings() {
             <input
               type="checkbox"
               checked={phoneticEnabled}
-              onChange={(e) => setPhoneticEnabled(e.target.checked)}
+              onChange={(e) => {
+                const val = e.target.checked;
+                setPhoneticEnabled(val);
+                axios.put('/api/settings', { phoneticEnabled: val }).catch(() => {});
+              }}
               className="w-5 h-5 accent-lime-500 rounded cursor-pointer"
             />
           </div>

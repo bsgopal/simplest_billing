@@ -14,7 +14,7 @@ export const languageList = [
 
 export function LanguageProvider({ children }) {
   const [currentLang, setCurrentLang] = useState(() => {
-    return localStorage.getItem('simple_billing_lang') || 'en';
+    return localStorage.getItem('simple_billing_lang') || 'ta';
   });
 
   const [phoneticEnabled, setPhoneticEnabled] = useState(() => {
@@ -29,6 +29,29 @@ export function LanguageProvider({ children }) {
     localStorage.setItem('simple_billing_lang', currentLang);
     axios.defaults.headers.common['x-language'] = currentLang;
   }, [currentLang]);
+
+  useEffect(() => {
+    // Attempt to sync language from store settings if available
+    axios.get('/api/settings').then(res => {
+      if (res.data?.defaultLanguage) {
+        const stored = localStorage.getItem('simple_billing_lang');
+        if (!stored) {
+          setCurrentLang(res.data.defaultLanguage);
+        }
+      }
+    }).catch(() => {});
+  }, []);
+
+  const selectLanguage = async (code) => {
+    setCurrentLang(code);
+    localStorage.setItem('simple_billing_lang', code);
+    axios.defaults.headers.common['x-language'] = code;
+    try {
+      await axios.put('/api/settings', { defaultLanguage: code });
+    } catch (e) {
+      // background sync
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('simple_billing_phonetic', String(phoneticEnabled));
@@ -86,6 +109,7 @@ export function LanguageProvider({ children }) {
     <LanguageContext.Provider value={{
       currentLang,
       setCurrentLang,
+      selectLanguage,
       phoneticEnabled,
       setPhoneticEnabled,
       languageList,

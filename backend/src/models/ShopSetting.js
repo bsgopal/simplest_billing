@@ -8,6 +8,8 @@ const shopSettingSchema = new mongoose.Schema({
   shopType: { type: String, enum: ['petti', 'vegetable', 'departmental', 'general'], default: 'petti' },
   currency: { type: String, default: 'INR' },
   currencySymbol: { type: String, default: '₹' },
+  defaultLanguage: { type: String, default: 'ta' },
+  phoneticEnabled: { type: Boolean, default: true },
   chargeGst: { type: Boolean, default: false },
   gstin: { type: String, default: '' },
   priceIncludesGst: { type: Boolean, default: true },

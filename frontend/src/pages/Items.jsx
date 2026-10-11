@@ -328,7 +328,11 @@ export default function Items() {
                       </div>
                       <div className="text-[10px] text-slate-400">
                         {it.code ? `Code: #${it.code} ` : ''}
-                        {it.barcode ? `• Barcode: ${it.barcode}` : ''}
+                        {it.barcodes?.length > 1
+                          ? `• ${it.barcodes.length} Barcodes linked`
+                          : it.barcode
+                          ? `• Barcode: ${it.barcode}`
+                          : '• No barcode linked yet'}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-slate-600 font-semibold">{it.category}</td>
@@ -582,28 +586,30 @@ export default function Items() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Barcode / Code</label>
-                  <input
-                    type="text"
-                    placeholder="Scan or auto-generated"
-                    value={formData.barcode}
-                    onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-hidden"
-                  />
-                </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Alert Below (Low Stock Qty)</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={formData.lowStockLevel}
+                  onChange={(e) => setFormData({ ...formData, lowStockLevel: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-hidden"
+                />
+              </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Alert Below (Low Stock Qty)</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={formData.lowStockLevel}
-                    onChange={(e) => setFormData({ ...formData, lowStockLevel: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-hidden"
-                  />
+              {/* Informational Barcode Banner */}
+              <div className="p-3 bg-brand-50/60 rounded-2xl border border-brand-200/80 text-slate-700 text-[11px] flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Barcode className="w-4 h-4 text-brand-600 shrink-0" />
+                  <span>
+                    Barcodes are scanned &amp; linked in <strong>Stock Inward</strong> (1 stock added per unique barcode).
+                  </span>
                 </div>
+                {editingItem?.barcodes?.length > 0 && (
+                  <span className="text-[10px] font-black bg-brand-200 text-brand-950 px-2 py-0.5 rounded-full shrink-0">
+                    {editingItem.barcodes.length} linked
+                  </span>
+                )}
               </div>
 
               {/* Quick Item Checkbox */}

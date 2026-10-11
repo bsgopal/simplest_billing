@@ -34,7 +34,7 @@ export default function BarcodeStockModal({
   onItemSaved,
   categories = []
 }) {
-  const { currentLang } = useLanguage();
+  const { currentLang, transliterateWord } = useLanguage();
   const { toast, confirm } = useToast();
   const [allItems, setAllItems] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState('');
@@ -349,14 +349,19 @@ export default function BarcodeStockModal({
   // Handle Quick Creation of New Item
   const handleCreateNewItem = async (e) => {
     e.preventDefault();
-    const cleanName = newItemForm.name.trim();
+    let cleanName = newItemForm.name.trim();
     if (!cleanName || !newItemForm.sellingPrice) {
-      alert('Item Name and Selling Price are required');
+      toast.warning('Item Name and Selling Price are required');
       return;
     }
 
     setSubmitting(true);
     try {
+      if (currentLang !== 'en' && /[a-zA-Z]/.test(cleanName)) {
+        const converted = await transliterateWord(cleanName, currentLang);
+        if (converted) cleanName = converted;
+      }
+
       const autoTranslations = { ...(newItemForm.translations || {}) };
       if (currentLang !== 'en' && cleanName) {
         autoTranslations[currentLang] = cleanName;
@@ -364,6 +369,7 @@ export default function BarcodeStockModal({
 
       const payload = {
         name: cleanName,
+        language: currentLang,
         translations: autoTranslations,
         barcode: barcode.trim() || undefined,
         category: newItemForm.category.trim() || 'General',

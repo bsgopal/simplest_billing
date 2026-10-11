@@ -32,8 +32,8 @@ import { useToast } from '../context/ToastContext';
 import TransliterateInput from '../components/TransliterateInput';
 
 export default function StockInward() {
-  const { currentLang } = useLanguage();
-  const { toast, confirm } = useToast();
+  const { currentLang, transliterateWord } = useLanguage();
+  const { toast, confirm, prompt } = useToast();
   const [allItems, setAllItems] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
@@ -494,9 +494,15 @@ export default function StockInward() {
 
     setSubmitting(true);
     try {
-      const cleanName = newItemForm.name.trim();
+      let cleanName = newItemForm.name.trim();
+      if (currentLang !== 'en' && /[a-zA-Z]/.test(cleanName)) {
+        const converted = await transliterateWord(cleanName, currentLang);
+        if (converted) cleanName = converted;
+      }
+
       const payload = {
         name: cleanName,
+        language: currentLang,
         translations: {
           ...(newItemForm.translations || {}),
           ...(currentLang !== 'en' ? { [currentLang]: cleanName } : {})
@@ -672,20 +678,33 @@ export default function StockInward() {
                     <select
                       required
                       value={newItemForm.category}
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         if (e.target.value === '__add_category__') {
-                          const newCat = prompt('Enter new category name:');
+                          const newCat = await prompt({
+                            title: 'Create Category',
+                            message: 'Enter new category name:',
+                            placeholder: 'e.g. kaaikari, snacks...',
+                            confirmText: 'Add Category'
+                          });
                           if (newCat && newCat.trim()) {
-                            const cleanCat = newCat.trim();
-                            axios.post('/api/categories', { name: cleanCat })
-                              .then(() => {
-                                setCategories(prev => Array.from(new Set([...prev, cleanCat])));
-                                setNewItemForm({ ...newItemForm, category: cleanCat });
-                              })
-                              .catch(() => {
-                                setCategories(prev => Array.from(new Set([...prev, cleanCat])));
-                                setNewItemForm({ ...newItemForm, category: cleanCat });
+                            let cleanCat = newCat.trim();
+                            if (currentLang !== 'en' && /[a-zA-Z]/.test(cleanCat)) {
+                              const converted = await transliterateWord(cleanCat, currentLang);
+                              if (converted) cleanCat = converted;
+                            }
+                            try {
+                              const autoTrans = currentLang !== 'en' ? { [currentLang]: cleanCat } : {};
+                              await axios.post('/api/categories', { 
+                                name: cleanCat, 
+                                language: currentLang,
+                                translations: autoTrans 
                               });
+                              setCategories(prev => Array.from(new Set([...prev, cleanCat])));
+                              setNewItemForm({ ...newItemForm, category: cleanCat });
+                              toast.success(`Category "${cleanCat}" created`);
+                            } catch (err) {
+                              toast.error(err.response?.data?.message || 'Error creating category');
+                            }
                           }
                         } else {
                           setNewItemForm({ ...newItemForm, category: e.target.value });

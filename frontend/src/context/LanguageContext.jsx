@@ -27,6 +27,7 @@ export function LanguageProvider({ children }) {
 
   useEffect(() => {
     localStorage.setItem('simple_billing_lang', currentLang);
+    axios.defaults.headers.common['x-language'] = currentLang;
   }, [currentLang]);
 
   useEffect(() => {

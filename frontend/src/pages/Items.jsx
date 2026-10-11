@@ -22,7 +22,7 @@ import TransliterateInput from '../components/TransliterateInput';
 import BarcodeStockModal from '../components/BarcodeStockModal';
 
 export default function Items() {
-  const { currentLang } = useLanguage();
+  const { currentLang, transliterateWord } = useLanguage();
   const { toast, confirm, prompt } = useToast();
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -186,12 +186,19 @@ export default function Items() {
     }
 
     try {
+      let cleanName = formData.name.trim();
+      if (currentLang !== 'en' && /[a-zA-Z]/.test(cleanName)) {
+        const converted = await transliterateWord(cleanName, currentLang);
+        if (converted) cleanName = converted;
+      }
+
       const payload = {
         ...formData,
-        name: formData.name.trim(),
+        name: cleanName,
+        language: currentLang,
         translations: {
           ...(formData.translations || {}),
-          ...(currentLang !== 'en' ? { [currentLang]: formData.name.trim() } : {})
+          ...(currentLang !== 'en' ? { [currentLang]: cleanName } : {})
         }
       };
       if (editingItem) {
@@ -488,13 +495,22 @@ export default function Items() {
                         const newCat = await prompt({
                           title: 'Create Category',
                           message: 'Enter new category name:',
-                          placeholder: 'e.g. Snacks, Dairy, Spices...',
+                          placeholder: 'e.g. kaaikari, snacks...',
                           confirmText: 'Add Category'
                         });
                         if (newCat && newCat.trim()) {
-                          const cleanCat = newCat.trim();
+                          let cleanCat = newCat.trim();
+                          if (currentLang !== 'en' && /[a-zA-Z]/.test(cleanCat)) {
+                            const converted = await transliterateWord(cleanCat, currentLang);
+                            if (converted) cleanCat = converted;
+                          }
                           try {
-                            await axios.post('/api/categories', { name: cleanCat });
+                            const autoTrans = currentLang !== 'en' ? { [currentLang]: cleanCat } : {};
+                            await axios.post('/api/categories', { 
+                              name: cleanCat, 
+                              language: currentLang,
+                              translations: autoTrans 
+                            });
                             setCategories((prev) => Array.from(new Set([...prev, cleanCat])));
                             setFormData({ ...formData, category: cleanCat });
                             toast.success(`Category "${cleanCat}" created`);

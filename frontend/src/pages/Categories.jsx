@@ -22,7 +22,7 @@ import { useToast } from '../context/ToastContext';
 import TransliterateInput from '../components/TransliterateInput';
 
 export default function Categories() {
-  const { currentLang } = useLanguage();
+  const { currentLang, transliterateWord } = useLanguage();
   const { toast, confirm } = useToast();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -165,7 +165,7 @@ export default function Categories() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    const cleanName = formData.name.trim();
+    let cleanName = formData.name.trim();
     if (!cleanName) {
       setErrorMsg('Category Name is required');
       return;
@@ -174,9 +174,15 @@ export default function Categories() {
     setSaving(true);
     setErrorMsg('');
     try {
+      if (currentLang !== 'en' && /[a-zA-Z]/.test(cleanName)) {
+        const converted = await transliterateWord(cleanName, currentLang);
+        if (converted) cleanName = converted;
+      }
+
       const payload = {
         ...formData,
         name: cleanName,
+        language: currentLang,
         translations: {
           ...(formData.translations || {}),
           ...(currentLang !== 'en' ? { [currentLang]: cleanName } : {})

@@ -2,7 +2,31 @@ import express from 'express';
 import { getTenantDb } from '../config/tenantConnectionManager.js';
 import { protect, authorize } from '../middleware/auth.js';
 
+import axios from 'axios';
+
 const router = express.Router();
+
+const itcMap = {
+  ta: 'ta-t-i0-und',
+  hi: 'hi-t-i0-und',
+  te: 'te-t-i0-und',
+  kn: 'kn-t-i0-und',
+  ml: 'ml-t-i0-und'
+};
+
+async function transliterateText(text, lang) {
+  if (!text || !lang || lang === 'en') return text;
+  const itc = itcMap[lang];
+  if (!itc) return text;
+  try {
+    const url = `https://inputtools.google.com/request?text=${encodeURIComponent(text.toLowerCase().trim())}&itc=${itc}&num=1&cp=0&cs=1&ie=utf-8&oe=utf-8&app=demopage`;
+    const res = await axios.get(url, { timeout: 3500 });
+    if (res.data?.[0] === 'SUCCESS' && res.data[1]?.[0]?.[1]?.[0]) {
+      return res.data[1][0][1][0];
+    }
+  } catch (err) {}
+  return text;
+}
 
 // GET all categories for current tenant
 router.get('/', protect, async (req, res) => {
@@ -67,7 +91,16 @@ router.post('/', protect, async (req, res) => {
     }
 
     const models = getTenantDb(req.customerCode);
-    const cleanName = name.trim();
+    let cleanName = name.trim();
+    const activeLang = req.body.language || req.headers['x-language'] || 'en';
+
+    // Auto-transliterate if active language is non-English and name has English letters
+    if (activeLang !== 'en' && /[a-zA-Z]/.test(cleanName)) {
+      const converted = await transliterateText(cleanName, activeLang);
+      if (converted && converted !== cleanName) {
+        cleanName = converted;
+      }
+    }
 
     // Check duplicate
     const existing = await models.Category.findOne({ 
@@ -77,16 +110,22 @@ router.post('/', protect, async (req, res) => {
       return res.status(400).json({ message: `Category "${cleanName}" already exists` });
     }
 
+    const autoTranslations = {
+      ta: translations?.ta?.trim() || '',
+      hi: translations?.hi?.trim() || '',
+      te: translations?.te?.trim() || '',
+      kn: translations?.kn?.trim() || '',
+      ml: translations?.ml?.trim() || ''
+    };
+
+    if (activeLang !== 'en' && !autoTranslations[activeLang]) {
+      autoTranslations[activeLang] = cleanName;
+    }
+
     const category = await models.Category.create({
       name: cleanName,
       description: (description || '').trim(),
-      translations: {
-        ta: translations?.ta?.trim() || '',
-        hi: translations?.hi?.trim() || '',
-        te: translations?.te?.trim() || '',
-        kn: translations?.kn?.trim() || '',
-        ml: translations?.ml?.trim() || ''
-      },
+      translations: autoTranslations,
       icon: icon || 'Tag',
       color: color || '#84cc16',
       displayOrder: parseInt(displayOrder, 10) || 0,

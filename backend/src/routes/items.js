@@ -209,6 +209,15 @@ router.post('/link-barcode-stock', protect, async (req, res) => {
       performedBy: req.user.name
     });
 
+    res.json({
+      message: 'Stock inwarded successfully',
+      item: updatedItem
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error inwarding stock', error: error.message });
+  }
+});
+
 // Bulk Commit Scanned Barcodes to Items (1 stock per unique barcode)
 router.post('/bulk-barcode-inward', protect, async (req, res) => {
   try {
@@ -305,9 +314,6 @@ router.get('/categories-units', protect, async (req, res) => {
       ...(settings?.categories || [])
     ])).filter(Boolean);
 
-    res.json({
-      categories: allCategories,
-      categoryDetails: categoryDocs,
     // Dynamic units unified from settings and all items in DB (not hardcoded/enum)
     const itemUnits = await models.Item.distinct('unit', { isActive: true });
     const configuredUnits = (settings?.units && settings.units.length > 0) ? settings.units : [

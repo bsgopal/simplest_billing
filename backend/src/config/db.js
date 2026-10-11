@@ -9,7 +9,7 @@ export const connectDB = async () => {
   }
 
   const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/simple_billing';
-  const attempts = 3;
+  const attempts = process.env.VERCEL ? 1 : 3;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       mongoose.set('strictQuery', false);

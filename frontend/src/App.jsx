@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { BillingProvider } from './context/BillingContext';
+import { LanguageProvider } from './context/LanguageContext';
 
 // Components
 import Header from './components/Header';
@@ -76,12 +77,14 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <BillingProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/*" element={<ProtectedLayout />} />
-          </Routes>
-        </BillingProvider>
+        <LanguageProvider>
+          <BillingProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/*" element={<ProtectedLayout />} />
+            </Routes>
+          </BillingProvider>
+        </LanguageProvider>
       </AuthProvider>
     </BrowserRouter>
   );

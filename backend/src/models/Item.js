@@ -12,7 +12,7 @@ const itemSchema = new mongoose.Schema({
   code: { type: String, trim: true }, // e.g. "101"
   barcode: { type: String, trim: true, index: true },
   barcodes: [{ type: String, trim: true }], // Supports multiple barcodes / QR codes mapped to one item
-  category: { type: String, default: 'General', trim: true },
+  category: { type: String, required: [true, 'Category is required'], trim: true },
   unit: { type: String, required: true, default: 'pcs' }, // kg, gram, pcs, packet, dozen, litre, ml, box, bunch
   allowDecimals: { type: Boolean, default: false },
   purchasePrice: { type: Number, default: 0, min: 0 },

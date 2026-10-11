@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Settings as SettingsIcon, Store, Printer, Shield, Save, Users, Plus, Check, RefreshCw } from 'lucide-react';
+import { Settings as SettingsIcon, Store, Printer, Shield, Save, Users, Plus, Check, RefreshCw, Languages, Globe } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import TransliterateInput from '../components/TransliterateInput';
 
 export default function Settings() {
   const { user, client } = useAuth();
@@ -28,6 +30,10 @@ export default function Settings() {
   const [staffUsers, setStaffUsers] = useState([]);
   const [showAddStaff, setShowAddStaff] = useState(false);
   const [newStaff, setNewStaff] = useState({ name: '', role: 'CASHIER', pin: '' });
+
+  // Language & Phonetic Settings
+  const { currentLang, setCurrentLang, phoneticEnabled, setPhoneticEnabled, languageList } = useLanguage();
+  const [testTyping, setTestTyping] = useState('');
 
   useEffect(() => {
     fetchSettings();
@@ -106,6 +112,7 @@ export default function Settings() {
         {[
           { id: 'SHOP', label: 'Shop & Receipt', icon: Store },
           { id: 'PRINTER', label: 'Thermal Printer & Billing', icon: Printer },
+          { id: 'LANGUAGE', label: 'Language & Phonetic Typing', icon: Languages },
           { id: 'STAFF', label: 'Staff PINs & Roles', icon: Users }
         ].map((tab) => {
           const Icon = tab.icon;
@@ -288,6 +295,100 @@ export default function Settings() {
             </button>
           </div>
         </form>
+      )}
+
+      {/* TAB: LANGUAGE & PHONETIC TYPING */}
+      {activeTab === 'LANGUAGE' && (
+        <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-6">
+          <div>
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <Languages className="w-5 h-5 text-lime-400" />
+              Store Display & Typing Language
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Select your preferred regional language. When phonetic typing is active, typing in English (e.g., <span className="text-lime-300 font-mono">thakkali</span>) automatically converts to regional script (<span className="text-lime-300 font-bold">தக்காளி</span>) upon pressing Space or Enter.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {languageList.map((lang) => {
+              const isSelected = currentLang === lang.code;
+              return (
+                <button
+                  key={lang.code}
+                  type="button"
+                  onClick={() => setCurrentLang(lang.code)}
+                  className={`p-4 rounded-xl border text-left transition flex flex-col justify-between ${
+                    isSelected
+                      ? 'bg-lime-500/10 border-lime-400 shadow-md shadow-lime-500/10'
+                      : 'bg-slate-900 border-slate-700 hover:border-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xl font-bold text-white">{lang.native}</span>
+                    {isSelected && <Check className="w-5 h-5 text-lime-400" />}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-2 font-medium">
+                    {lang.label} {lang.code !== 'en' && '• Phonetic typing'}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Phonetic typing toggle */}
+          <div className="p-4 bg-slate-900 rounded-xl border border-slate-700 flex items-center justify-between">
+            <div>
+              <div className="font-bold text-white text-sm flex items-center gap-2">
+                <span>Enable Phonetic Typing (Tanglish / Hinglish to Script)</span>
+                {phoneticEnabled && (
+                  <span className="text-[10px] bg-lime-500/20 text-lime-400 px-2 py-0.5 rounded font-bold">
+                    ACTIVE
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-slate-400 mt-0.5">
+                Automatically transliterate English words into {languageList.find(l => l.code === currentLang)?.native || 'Regional'} when you type a space
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={phoneticEnabled}
+              onChange={(e) => setPhoneticEnabled(e.target.checked)}
+              className="w-5 h-5 accent-lime-500 rounded cursor-pointer"
+            />
+          </div>
+
+          {/* Interactive Test typing playground */}
+          <div className="p-5 bg-slate-900/80 rounded-xl border border-slate-700/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                Live Typing Preview & Test Box
+              </span>
+              <span className="text-xs text-slate-400">
+                Selected: <span className="text-lime-400 font-bold">{languageList.find(l => l.code === currentLang)?.label}</span>
+              </span>
+            </div>
+            <TransliterateInput
+              value={testTyping}
+              onChange={(e) => setTestTyping(e.target.value)}
+              placeholder={`Try typing "${currentLang === 'ta' ? 'thakkali venum' : currentLang === 'hi' ? 'tamatar chahiye' : 'product name'}" and hit space...`}
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-base focus:outline-none focus:border-lime-500"
+            />
+            <div className="text-xs text-slate-400 flex items-center justify-between">
+              <span>Output result: <span className="text-lime-300 font-semibold">{testTyping || '—'}</span></span>
+              {testTyping && (
+                <button
+                  type="button"
+                  onClick={() => setTestTyping('')}
+                  className="text-xs text-slate-500 hover:text-white"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* TAB 3: STAFF & PIN */}

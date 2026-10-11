@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useBilling } from '../context/BillingContext';
+import { useLanguage } from '../context/LanguageContext';
 import WeightCalcModal from '../components/WeightCalcModal';
 import PaymentModal from './PaymentModal';
 import ThermalReceiptModal from '../components/ThermalReceiptModal';
@@ -55,18 +56,9 @@ export default function NewBill() {
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [customersList, setCustomersList] = useState([]);
-  const [activeLang, setActiveLang] = useState('en'); // en, ta, hi, te, kn, ml
+  const { currentLang } = useLanguage();
 
-  const languageTabs = [
-    { code: 'en', label: 'English', native: 'English' },
-    { code: 'ta', label: 'Tamil', native: 'தமிழ்' },
-    { code: 'hi', label: 'Hindi', native: 'हिन्दी' },
-    { code: 'te', label: 'Telugu', native: 'తెలుగు' },
-    { code: 'kn', label: 'Kannada', native: 'ಕನ್ನಡ' },
-    { code: 'ml', label: 'Malayalam', native: 'മലയാളം' }
-  ];
-
-  const getItemDisplayName = (it, lang = activeLang) => {
+  const getItemDisplayName = (it, lang = currentLang) => {
     if (!it) return '';
     if (lang !== 'en' && it.translations && it.translations[lang]) {
       return it.translations[lang];
@@ -420,29 +412,6 @@ export default function NewBill() {
               </select>
             </div>
 
-            {/* Language Switcher Tabs */}
-            <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0 flex items-center gap-1 mr-1">
-                <Globe className="w-3 h-3 text-brand-600" />
-                Lang:
-              </span>
-              {languageTabs.map(tab => (
-                <button
-                  key={tab.code}
-                  type="button"
-                  onClick={() => setActiveLang(tab.code)}
-                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition shrink-0 ${
-                    activeLang === tab.code
-                      ? 'bg-brand-500 text-slate-950 font-black shadow-2xs'
-                      : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-                  }`}
-                  title={tab.label}
-                >
-                  {tab.native}
-                </button>
-              ))}
-            </div>
-
             {/* Quick Item Buttons Strip (One-tap fast billing) */}
             {quickItems.length > 0 && !searchQuery && (
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar">
@@ -482,7 +451,7 @@ export default function NewBill() {
                     <h4 className="text-xs sm:text-sm font-black text-slate-900 leading-snug line-clamp-2 group-hover:text-brand-700">
                       {getItemDisplayName(item)}
                     </h4>
-                    {activeLang !== 'en' && item.translations?.[activeLang] && (
+                    {currentLang !== 'en' && item.translations?.[currentLang] && (
                       <p className="text-[10px] text-slate-400 font-medium truncate">
                         {item.name}
                       </p>
@@ -574,7 +543,7 @@ export default function NewBill() {
                       {getItemDisplayName(line)}
                     </p>
                     <p className="text-[10px] text-slate-500">
-                      {activeLang !== 'en' && line.translations?.[activeLang] && `${line.name} • `}₹{line.rate} / {line.unit}
+                      {currentLang !== 'en' && line.translations?.[currentLang] && `${line.name} • `}₹{line.rate} / {line.unit}
                     </p>
                   </div>
 

@@ -77,8 +77,12 @@ router.post('/', protect, async (req, res) => {
       hsn, gstPercent, openingStock, lowStockLevel, isQuickItem
     } = req.body;
 
-    if (!name || !sellingPrice || !unit) {
-      return res.status(400).json({ message: 'Name, Unit, and Selling Price are required' });
+    const cleanName = String(name || '').trim();
+    const cleanCategory = String(category || '').trim();
+    const cleanUnit = String(unit || '').trim();
+
+    if (!cleanName || !cleanCategory || cleanCategory.toLowerCase() === 'all' || !cleanUnit || sellingPrice === undefined || sellingPrice === '') {
+      return res.status(400).json({ message: 'Product Name, Category, Unit, and Selling Price are required' });
     }
 
     const models = getTenantDb(req.customerCode);
@@ -90,13 +94,13 @@ router.post('/', protect, async (req, res) => {
     }
 
     const item = await models.Item.create({
-      name,
+      name: cleanName,
       translations: translations || {},
       code: itemCode,
       barcode: barcode ? barcode.trim() : '',
       barcodes: barcode ? [barcode.trim()] : [],
-      category: category || 'General',
-      unit,
+      category: cleanCategory,
+      unit: cleanUnit,
       allowDecimals: Boolean(allowDecimals || unit === 'kg' || unit === 'litre'),
       purchasePrice: parseFloat(purchasePrice) || 0,
       mrp: parseFloat(mrp) || 0,

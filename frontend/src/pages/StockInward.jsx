@@ -464,11 +464,19 @@ export default function StockInward() {
     }
   };
 
-  // Quick Create New Item (No Initial Count)
+  // Quick Create New Product (No Initial Count)
   const handleCreateNewItem = async (e) => {
     e.preventDefault();
-    if (!newItemForm.name.trim() || !newItemForm.sellingPrice) {
-      alert('Item Name and Selling Price are required');
+    if (!newItemForm.name?.trim()) {
+      alert('Product Name is required');
+      return;
+    }
+    if (!newItemForm.category?.trim() || newItemForm.category === 'All') {
+      alert('Category is required! A product cannot be created without a category.');
+      return;
+    }
+    if (newItemForm.sellingPrice === undefined || newItemForm.sellingPrice === '') {
+      alert('Selling Price is required');
       return;
     }
 
@@ -477,7 +485,7 @@ export default function StockInward() {
       const payload = {
         name: newItemForm.name.trim(),
         translations: newItemForm.translations || {},
-        category: newItemForm.category.trim() || 'General',
+        category: newItemForm.category.trim(),
         unit: newItemForm.unit,
         sellingPrice: Number(newItemForm.sellingPrice),
         purchasePrice: Number(newItemForm.purchasePrice) || 0,
@@ -507,7 +515,7 @@ export default function StockInward() {
       });
 
       const dispName = getItemDisplayName(created);
-      showToast(`Item "${dispName}" created! Ready to scan packet barcodes.`, 'success');
+      showToast(`Product "${dispName}" created! Ready to scan packet barcodes.`, 'success');
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to create item', 'error');
     } finally {
@@ -623,7 +631,7 @@ export default function StockInward() {
             <div className="flex items-center justify-between">
               <label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                 <Package className="w-4 h-4 text-brand-600" />
-                Step 1: Select Item to Stock
+                Step 1: Select Product to Stock
               </label>
 
               <button
@@ -632,7 +640,7 @@ export default function StockInward() {
                 className="text-xs font-bold text-brand-800 hover:text-brand-900 bg-brand-100 hover:bg-brand-200 px-2.5 py-1 rounded-lg transition flex items-center gap-1"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>{isCreatingNew ? 'Pick Existing' : '+ Create New Item'}</span>
+                <span>{isCreatingNew ? 'Pick Existing' : '+ Create New Product'}</span>
               </button>
             </div>
 
@@ -763,39 +771,46 @@ export default function StockInward() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[10px] font-bold text-brand-700 uppercase tracking-wider mb-0.5">
-                      Selling Price (₹) *
+                    <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-0.5">
+                      Category *
                     </label>
-                    <input
-                      type="number"
-                      step="0.01"
+                    <select
                       required
-                      value={newItemForm.sellingPrice}
-                      onChange={(e) => setNewItemForm({ ...newItemForm, sellingPrice: e.target.value })}
-                      placeholder="0.00"
-                      className="w-full px-2.5 py-1.5 bg-white border border-brand-400 rounded-xl text-slate-900 font-mono font-bold text-xs focus:outline-none focus:border-brand-600"
-                    />
+                      value={newItemForm.category}
+                      onChange={(e) => {
+                        if (e.target.value === '__add_category__') {
+                          const newCat = prompt('Enter new category name:');
+                          if (newCat && newCat.trim()) {
+                            const cleanCat = newCat.trim();
+                            axios.post('/api/categories', { name: cleanCat })
+                              .then(() => {
+                                setCategories(prev => Array.from(new Set([...prev, cleanCat])));
+                                setNewItemForm({ ...newItemForm, category: cleanCat });
+                              })
+                              .catch(() => {
+                                setCategories(prev => Array.from(new Set([...prev, cleanCat])));
+                                setNewItemForm({ ...newItemForm, category: cleanCat });
+                              });
+                          }
+                        } else {
+                          setNewItemForm({ ...newItemForm, category: e.target.value });
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-xs font-bold focus:outline-none focus:border-brand-500"
+                    >
+                      <option value="">-- Select Category * --</option>
+                      {categories.filter(c => c && c !== 'All').map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                      <option value="__add_category__">+ Add New Category...</option>
+                    </select>
                   </div>
 
                   <div>
                     <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-0.5">
-                      Cost Price (₹)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newItemForm.purchasePrice}
-                      onChange={(e) => setNewItemForm({ ...newItemForm, purchasePrice: e.target.value })}
-                      placeholder="0.00"
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono text-xs focus:outline-none focus:border-brand-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-0.5">
-                      Unit
+                      Unit *
                     </label>
                     <div className="flex gap-1">
                       <select
@@ -834,6 +849,37 @@ export default function StockInward() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-brand-700 uppercase tracking-wider mb-0.5">
+                      Selling Price (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={newItemForm.sellingPrice}
+                      onChange={(e) => setNewItemForm({ ...newItemForm, sellingPrice: e.target.value })}
+                      placeholder="0.00"
+                      className="w-full px-2.5 py-1.5 bg-white border border-brand-400 rounded-xl text-slate-900 font-mono font-bold text-xs focus:outline-none focus:border-brand-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-0.5">
+                      Cost Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={newItemForm.purchasePrice}
+                      onChange={(e) => setNewItemForm({ ...newItemForm, purchasePrice: e.target.value })}
+                      placeholder="0.00"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono text-xs focus:outline-none focus:border-brand-500"
+                    />
+                  </div>
+                </div>
+
                 <div className="flex justify-end gap-2 pt-1">
                   <button
                     type="button"
@@ -848,7 +894,7 @@ export default function StockInward() {
                     className="px-4 py-1.5 bg-brand-500 hover:bg-brand-600 text-slate-950 font-black rounded-lg text-xs transition shadow-2xs flex items-center gap-1.5"
                   >
                     <Check className="w-3.5 h-3.5" />
-                    <span>{submitting ? 'Saving...' : 'Save & Select Item'}</span>
+                    <span>{submitting ? 'Saving...' : 'Save & Select Product'}</span>
                   </button>
                 </div>
               </form>
@@ -865,7 +911,7 @@ export default function StockInward() {
                       setItemDropdownOpen(true);
                     }}
                     onFocus={() => setItemDropdownOpen(true)}
-                    placeholder="Search item name, code or barcode..."
+                    placeholder="Search product name, code or barcode..."
                     className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 shadow-2xs"
                   />
                   <button

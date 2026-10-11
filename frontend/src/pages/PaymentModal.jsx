@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useBilling } from '../context/BillingContext';
 import { 
@@ -50,7 +50,7 @@ export default function PaymentModal({ onClose, onSuccess }) {
     setError('');
   };
 
-  const handleSubmit = async (shouldPrint = true) => {
+  const handleSubmit = async (shouldPrint = true, sendWhatsApp = false) => {
     setError('');
 
     if (totalPaid < grandTotal - 0.5) {
@@ -80,7 +80,31 @@ export default function PaymentModal({ onClose, onSuccess }) {
         notes
       });
 
-      onSuccess(res.data.bill);
+      const bill = res.data.bill;
+
+      if (sendWhatsApp) {
+        const phone = (bill.customer?.phone || customer?.phone || '').replace(/[^0-9]/g, '');
+        let msg = `*${bill.shopName || 'Shop Receipt'}*\n`;
+        msg += `Bill No: #${bill.billNo}\n`;
+        msg += `Date: ${new Date(bill.date).toLocaleString()}\n`;
+        msg += `Customer: ${bill.customer?.name || 'Customer'}\n\n`;
+        msg += `*Items:*\n`;
+        bill.items.forEach((it, idx) => {
+          msg += `${idx + 1}. ${it.name} - ${it.qty} ${it.unit} @ ₹${it.rate} = ₹${it.amount.toFixed(2)}\n`;
+        });
+        msg += `\n*Grand Total: ₹${bill.grandTotal.toFixed(2)}*\n`;
+        if (bill.payments?.credit > 0) {
+          msg += `Payment: Credit (Udhar) ₹${bill.payments.credit.toFixed(2)}\n`;
+        } else {
+          msg += `Paid via: ${bill.payments?.cash > 0 ? 'Cash ' : ''}${bill.payments?.upi > 0 ? 'UPI ' : ''}${bill.payments?.card > 0 ? 'Card ' : ''}\n`;
+        }
+        msg += `\nThank you for shopping with us! Visit again!`;
+
+        const waUrl = phone ? `https://wa.me/91${phone}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+        window.open(waUrl, '_blank');
+      }
+
+      onSuccess(bill);
     } catch (err) {
       setError(err.response?.data?.message || 'Error completing payment');
     } finally {
@@ -245,10 +269,10 @@ export default function PaymentModal({ onClose, onSuccess }) {
         </div>
 
         {/* Action Buttons */}
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
           <button
             type="button"
-            onClick={() => handleSubmit(false)}
+            onClick={() => handleSubmit(false, false)}
             disabled={saving}
             className="py-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
           >
@@ -258,12 +282,22 @@ export default function PaymentModal({ onClose, onSuccess }) {
 
           <button
             type="button"
-            onClick={() => handleSubmit(true)}
+            onClick={() => handleSubmit(true, false)}
             disabled={saving}
             className="py-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-sm active:scale-98"
           >
             <Printer className="w-4 h-4" />
             <span>Save &amp; Print</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSubmit(false, true)}
+            disabled={saving}
+            className="py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-md shadow-emerald-600/30 active:scale-98"
+          >
+            <span className="text-sm">📲</span>
+            <span>Save &amp; WhatsApp</span>
           </button>
         </div>
       </div>

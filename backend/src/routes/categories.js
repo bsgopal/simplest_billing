@@ -191,9 +191,15 @@ router.delete('/:id', protect, async (req, res) => {
     });
 
     if (itemsCount > 0) {
-      return res.status(400).json({ 
-        message: `Cannot delete category "${category.name}" because ${itemsCount} active item(s) are assigned to it. Reassign or remove items first.` 
-      });
+      // Reassign active items to 'General' so category can be safely deleted
+      await models.Item.updateMany(
+        { category: category.name },
+        { $set: { category: 'General' } }
+      );
+      await models.ShopSetting.findOneAndUpdate(
+        {},
+        { $addToSet: { categories: 'General' } }
+      );
     }
 
     await models.Category.findByIdAndDelete(req.params.id);

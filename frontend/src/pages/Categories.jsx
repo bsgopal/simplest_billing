@@ -156,7 +156,8 @@ export default function Categories() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
+    const cleanName = formData.name.trim();
+    if (!cleanName) {
       setErrorMsg('Category Name is required');
       return;
     }
@@ -164,10 +165,18 @@ export default function Categories() {
     setSaving(true);
     setErrorMsg('');
     try {
+      const payload = {
+        ...formData,
+        name: cleanName,
+        translations: {
+          ...(formData.translations || {}),
+          ...(currentLang !== 'en' ? { [currentLang]: cleanName } : {})
+        }
+      };
       if (editingCategory) {
-        await axios.put(`/api/categories/${editingCategory._id}`, formData);
+        await axios.put(`/api/categories/${editingCategory._id}`, payload);
       } else {
-        await axios.post('/api/categories', formData);
+        await axios.post('/api/categories', payload);
       }
       setModalOpen(false);
       fetchCategories();
@@ -376,7 +385,7 @@ export default function Categories() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Category Name (English / Primary) *
+                  Category Name *
                 </label>
                 <TransliterateInput
                   required
@@ -399,96 +408,6 @@ export default function Categories() {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-xs focus:outline-none focus:border-brand-500"
                 />
-              </div>
-
-              {/* Multi-Language Section */}
-              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-3">
-                <div className="flex items-center gap-1.5 text-xs font-black uppercase text-brand-800">
-                  <Globe className="w-4 h-4 text-brand-600" />
-                  Multi-Language Names (Optional)
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-0.5">
-                      Tamil (தமிழ்)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="எ.கா. மளிகை, தின்பண்டங்கள்"
-                      value={formData.translations.ta}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        translations: { ...formData.translations, ta: e.target.value }
-                      })}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold focus:outline-none focus:border-brand-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-0.5">
-                      Hindi (हिन्दी)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="उदा. किराना, स्नैक्स"
-                      value={formData.translations.hi}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        translations: { ...formData.translations, hi: e.target.value }
-                      })}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold focus:outline-none focus:border-brand-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-0.5">
-                      Telugu (తెలుగు)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="ఉదా. కిరాణా, స్నాక్స్"
-                      value={formData.translations.te}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        translations: { ...formData.translations, te: e.target.value }
-                      })}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold focus:outline-none focus:border-brand-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-0.5">
-                      Kannada (ಕನ್ನಡ)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="ಉದಾ. ದಿನಸಿ, ತಿಂಡಿಗಳು"
-                      value={formData.translations.kn}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        translations: { ...formData.translations, kn: e.target.value }
-                      })}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold focus:outline-none focus:border-brand-500"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-bold text-slate-600 mb-0.5">
-                      Malayalam (മലയാളം)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="ഉദാ. പലചരക്ക്, പലഹാരങ്ങൾ"
-                      value={formData.translations.ml}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        translations: { ...formData.translations, ml: e.target.value }
-                      })}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold focus:outline-none focus:border-brand-500"
-                    />
-                  </div>
-                </div>
               </div>
 
               {/* Color Preset */}

@@ -400,4 +400,90 @@ router.delete('/units/:name', protect, async (req, res) => {
   }
 });
 
+// Delete a product permanently
+router.delete('/:id', protect, async (req, res) => {
+  try {
+    const models = getTenantDb(req.customerCode);
+    const item = await models.Item.findById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    await models.Item.findByIdAndDelete(req.params.id);
+
+    try {
+      await models.AuditLog.create({
+        action: 'ITEM_DELETE',
+        entity: 'Item',
+        entityId: req.params.id,
+        details: { name: item.name, code: item.code, category: item.category },
+        performedBy: req.user?.name || 'Admin'
+      });
+    } catch {}
+
+    res.json({ message: `Product "${item.name}" deleted successfully` });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting product', error: error.message });
+  }
+});
+
+// Reset / Delete stock for a product (zero inventory and clear barcodes)
+router.delete('/:id/stock', protect, async (req, res) => {
+  try {
+    const models = getTenantDb(req.customerCode);
+    const item = await models.Item.findById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const prevStock = item.currentStock;
+    item.currentStock = 0;
+    item.barcodes = [];
+    item.barcode = '';
+    await item.save();
+
+    try {
+      await models.StockTransaction.create({
+        itemId: item._id,
+        itemName: item.name,
+        type: 'Adjustment',
+        quantity: -prevStock,
+        previousStock: prevStock,
+        newStock: 0,
+        reason: 'Stock Reset / Deleted by user',
+        performedBy: req.user?.name || 'Admin'
+      });
+    } catch {}
+
+    res.json({ message: `Stock for "${item.name}" reset to 0`, item });
+  } catch (error) {
+    res.status(500).json({ message: 'Error resetting stock', error: error.message });
+  }
+});
+
+// Remove a specific barcode from a product
+router.delete('/:id/barcodes/:barcode', protect, async (req, res) => {
+  try {
+    const models = getTenantDb(req.customerCode);
+    const item = await models.Item.findById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const targetBarcode = req.params.barcode.trim();
+    item.barcodes = (item.barcodes || []).filter(b => b !== targetBarcode);
+    if (item.barcode === targetBarcode) {
+      item.barcode = item.barcodes[0] || '';
+    }
+    if (item.currentStock > 0) {
+      item.currentStock -= 1;
+    }
+    await item.save();
+
+    res.json({ message: `Barcode "${targetBarcode}" removed`, item });
+  } catch (error) {
+    res.status(500).json({ message: 'Error removing barcode', error: error.message });
+  }
+});
+
 export default router;

@@ -13,7 +13,8 @@ import {
   Star,
   Barcode,
   Layers,
-  Globe
+  Globe,
+  Trash2
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import TransliterateInput from '../components/TransliterateInput';
@@ -183,15 +184,43 @@ export default function Items() {
     }
 
     try {
+      const payload = {
+        ...formData,
+        name: formData.name.trim(),
+        translations: {
+          ...(formData.translations || {}),
+          ...(currentLang !== 'en' ? { [currentLang]: formData.name.trim() } : {})
+        }
+      };
       if (editingItem) {
-        await axios.put(`/api/items/${editingItem._id}`, formData);
+        await axios.put(`/api/items/${editingItem._id}`, payload);
       } else {
-        await axios.post('/api/items', formData);
+        await axios.post('/api/items', payload);
       }
       setModalOpen(false);
       fetchItems();
     } catch (err) {
       alert(err.response?.data?.message || 'Error saving product');
+    }
+  };
+
+  const handleDeleteItem = async (it) => {
+    if (!window.confirm(`Are you sure you want to delete "${it.name}"? This will permanently delete it from inventory and catalog.`)) return;
+    try {
+      await axios.delete(`/api/items/${it._id}`);
+      fetchItems();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete product');
+    }
+  };
+
+  const handleResetStock = async (it) => {
+    if (!window.confirm(`Reset stock for "${it.name}" to 0 and remove all linked barcodes?`)) return;
+    try {
+      await axios.delete(`/api/items/${it._id}/stock`);
+      fetchItems();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to reset stock');
     }
   };
 
@@ -365,12 +394,28 @@ export default function Items() {
                         >
                           Adjust
                         </button>
+                        {it.currentStock > 0 && (
+                          <button
+                            onClick={() => handleResetStock(it)}
+                            className="px-1.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded-lg text-[10px] border border-amber-200 transition"
+                            title="Reset stock to 0 and remove barcodes"
+                          >
+                            Zero Stock
+                          </button>
+                        )}
                         <button
                           onClick={() => handleOpenEdit(it)}
                           className="p-1 text-slate-400 hover:text-slate-800 rounded-lg transition"
-                          title="Edit item"
+                          title="Edit product"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteItem(it)}
+                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                          title="Delete product permanently"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
@@ -397,17 +442,7 @@ export default function Items() {
 
             <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-700 block">Product Name (English / Primary) *</label>
-                  <button
-                    type="button"
-                    onClick={() => setShowTranslations(!showTranslations)}
-                    className="text-[10px] font-bold text-brand-800 hover:text-brand-900 bg-brand-50 hover:bg-brand-100 px-2 py-0.5 rounded-md border border-brand-200 flex items-center gap-1 transition"
-                  >
-                    <Globe className="w-3 h-3 text-brand-600" />
-                    <span>{showTranslations ? 'Hide Regional Names' : '+ Multi-Language Names'}</span>
-                  </button>
-                </div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Product Name *</label>
                 <TransliterateInput
                   required
                   placeholder="e.g. Tomato, Sugar 1kg, Milk..."
@@ -416,98 +451,6 @@ export default function Items() {
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-hidden focus:border-brand-500"
                 />
               </div>
-
-              {/* Multi-Language Regional Names Section */}
-              {showTranslations && (
-                <div className="p-3 bg-brand-50/50 rounded-2xl border border-brand-200 space-y-2.5 animate-in fade-in duration-150">
-                  <div className="flex items-center gap-1.5 text-xs font-black text-brand-900">
-                    <Globe className="w-3.5 h-3.5 text-brand-600" />
-                    <span>Regional Script Item Names</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                        Tamil (தமிழ்)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.translations.ta}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          translations: { ...formData.translations, ta: e.target.value }
-                        })}
-                        placeholder="எ.கா. தக்காளி, பால்..."
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold focus:outline-hidden focus:border-brand-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                        Hindi (हिन्दी)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.translations.hi}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          translations: { ...formData.translations, hi: e.target.value }
-                        })}
-                        placeholder="उदा. टमाटर, दूध..."
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold focus:outline-hidden focus:border-brand-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                        Telugu (తెలుగు)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.translations.te}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          translations: { ...formData.translations, te: e.target.value }
-                        })}
-                        placeholder="ఉదా. టమోటా, పాలు..."
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold focus:outline-hidden focus:border-brand-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                        Kannada (ಕನ್ನಡ)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.translations.kn}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          translations: { ...formData.translations, kn: e.target.value }
-                        })}
-                        placeholder="ಉದಾ. ಟೊಮೆಟೊ, ಹಾಲು..."
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold focus:outline-hidden focus:border-brand-500"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                        Malayalam (മലയാളം)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.translations.ml}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          translations: { ...formData.translations, ml: e.target.value }
-                        })}
-                        placeholder="ഉദാ. തക്കാളി, പാൽ..."
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold focus:outline-hidden focus:border-brand-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
 
               <div className="grid grid-cols-2 gap-2">
                 <div>

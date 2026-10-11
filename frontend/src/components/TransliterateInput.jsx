@@ -1,11 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { Languages, Globe } from 'lucide-react';
+import { Languages } from 'lucide-react';
 
 /**
  * TransliterateInput Component
  * Converts phonetic English typing into native script (Tamil, Hindi, etc.)
- * e.g. Typing "Thakkali " converts to "தக்காளி "
+ * Automatically transliterates:
+ * 1. While typing with a 450ms debounce
+ * 2. On Space or Enter
+ * 3. On Blur
+ * 4. When clicking the language toggle badge
  */
 export default function TransliterateInput({
   value = '',
@@ -25,12 +29,73 @@ export default function TransliterateInput({
   const [localPhonetic, setLocalPhonetic] = useState(true);
   const [isConverting, setIsConverting] = useState(false);
   const inputRef = useRef(null);
+  const debounceTimerRef = useRef(null);
 
   const langInfo = getLanguageInfo();
   const isNonEnglish = currentLang !== 'en';
   const activeConversion = isNonEnglish && phoneticEnabled && localPhonetic;
 
-  // Process the last typed word when space/enter/blur occurs
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
+
+  /**
+   * Convert all English words in a given string to target script
+   */
+  const convertFullText = async (text) => {
+    if (!activeConversion || !text || !text.trim()) return;
+    if (!/[a-zA-Z]/.test(text)) return;
+
+    setIsConverting(true);
+    try {
+      const tokens = text.split(/(\s+)/);
+      let changed = false;
+
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        if (token && /^[a-zA-Z]+$/.test(token)) {
+          const converted = await transliterateWord(token, currentLang);
+          if (converted && converted !== token) {
+            tokens[i] = converted;
+            changed = true;
+          }
+        }
+      }
+
+      if (changed) {
+        const finalVal = tokens.join('');
+        if (onChange) {
+          onChange({
+            target: {
+              name,
+              value: finalVal
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Transliteration error:', err);
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const newVal = e.target.value;
+    if (onChange) onChange(e);
+
+    if (activeConversion && /[a-zA-Z]/.test(newVal)) {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        convertFullText(newVal);
+      }, 450);
+    }
+  };
+
+  // Immediate conversion on Space or Enter
   const handleKeyDown = async (e) => {
     if (!activeConversion) return;
 
@@ -42,11 +107,9 @@ export default function TransliterateInput({
       const textBeforeCursor = value.slice(0, cursorPos);
       const textAfterCursor = value.slice(cursorPos);
 
-      // Find the last word before the cursor
       const words = textBeforeCursor.split(/(\s+)/);
       const lastWord = words[words.length - 1];
 
-      // Check if last word contains English letters to transliterate
       if (lastWord && /^[a-zA-Z]+$/.test(lastWord)) {
         e.preventDefault();
         setIsConverting(true);
@@ -65,7 +128,6 @@ export default function TransliterateInput({
             });
           }
 
-          // Move cursor after the inserted word + space
           setTimeout(() => {
             if (inputRef.current) {
               const newPos = newTextBefore.length;
@@ -73,7 +135,7 @@ export default function TransliterateInput({
             }
           }, 0);
         } catch (err) {
-          console.warn('Transliteration error:', err);
+          console.warn('Space transliteration error:', err);
         } finally {
           setIsConverting(false);
         }
@@ -81,26 +143,18 @@ export default function TransliterateInput({
     }
   };
 
-  const handleBlur = async () => {
-    if (!activeConversion) return;
-    if (!value || !value.trim()) return;
+  const handleBlur = () => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    if (activeConversion && value && /[a-zA-Z]/.test(value)) {
+      convertFullText(value);
+    }
+  };
 
-    const words = value.split(/(\s+)/);
-    const lastWord = words[words.length - 1];
-    if (lastWord && /^[a-zA-Z]+$/.test(lastWord)) {
-      setIsConverting(true);
-      try {
-        const converted = await transliterateWord(lastWord, currentLang);
-        words[words.length - 1] = converted;
-        const finalVal = words.join('');
-        if (onChange) {
-          onChange({ target: { name, value: finalVal } });
-        }
-      } catch (err) {
-        console.warn('Blur transliteration error:', err);
-      } finally {
-        setIsConverting(false);
-      }
+  const handleBadgeClick = () => {
+    if (value && /[a-zA-Z]/.test(value)) {
+      convertFullText(value);
+    } else {
+      setLocalPhonetic(!localPhonetic);
     }
   };
 
@@ -112,7 +166,7 @@ export default function TransliterateInput({
           id={id}
           name={name}
           value={value}
-          onChange={onChange}
+          onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
           placeholder={placeholder}
@@ -129,7 +183,7 @@ export default function TransliterateInput({
           name={name}
           type={type}
           value={value}
-          onChange={onChange}
+          onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
           placeholder={placeholder}
@@ -145,13 +199,17 @@ export default function TransliterateInput({
         <button
           type="button"
           tabIndex={-1}
-          onClick={() => setLocalPhonetic(!localPhonetic)}
+          onClick={handleBadgeClick}
           className={`absolute right-1.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded-md text-[10px] font-black tracking-tight transition flex items-center gap-1 shadow-2xs select-none ${
             localPhonetic
               ? 'bg-brand-500 text-slate-950 hover:bg-brand-600'
               : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
           }`}
-          title={localPhonetic ? `Typing converts to ${langInfo.native} (Click to switch to English)` : 'Phonetic conversion off (Click to enable)'}
+          title={
+            localPhonetic
+              ? `Auto-transliteration to ${langInfo.native} active (Click to force convert or switch to EN)`
+              : 'Phonetic conversion off (Click to enable)'
+          }
         >
           {isConverting ? (
             <span className="w-2 h-2 rounded-full bg-slate-950 animate-ping mr-0.5" />

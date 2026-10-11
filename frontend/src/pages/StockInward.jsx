@@ -28,6 +28,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import TransliterateInput from '../components/TransliterateInput';
 
 export default function StockInward() {
   const { currentLang } = useLanguage();
@@ -483,9 +484,13 @@ export default function StockInward() {
 
     setSubmitting(true);
     try {
+      const cleanName = newItemForm.name.trim();
       const payload = {
-        name: newItemForm.name.trim(),
-        translations: newItemForm.translations || {},
+        name: cleanName,
+        translations: {
+          ...(newItemForm.translations || {}),
+          ...(currentLang !== 'en' ? { [currentLang]: cleanName } : {})
+        },
         category: newItemForm.category.trim(),
         unit: newItemForm.unit,
         sellingPrice: Number(newItemForm.sellingPrice),
@@ -636,21 +641,10 @@ export default function StockInward() {
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                      Product Name (English / Primary) *
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowTranslations(!showTranslations)}
-                      className="text-[10px] font-bold text-brand-800 hover:text-brand-900 bg-brand-50 hover:bg-brand-100 px-2 py-0.5 rounded-md border border-brand-200 flex items-center gap-1 transition"
-                    >
-                      <Globe className="w-3 h-3 text-brand-600" />
-                      <span>{showTranslations ? 'Hide Regional Names' : '+ Multi-Language Names'}</span>
-                    </button>
-                  </div>
-                  <input
-                    type="text"
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Product Name *
+                  </label>
+                  <TransliterateInput
                     required
                     autoFocus
                     value={newItemForm.name}
@@ -659,98 +653,6 @@ export default function StockInward() {
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm font-bold focus:outline-none focus:border-brand-500"
                   />
                 </div>
-
-                {/* Multi-Language Translations Fields */}
-                {showTranslations && (
-                  <div className="p-2.5 bg-brand-50/50 rounded-xl border border-brand-200 space-y-2 animate-in fade-in duration-150">
-                    <div className="flex items-center gap-1.5 text-[11px] font-black text-brand-900">
-                      <Globe className="w-3.5 h-3.5 text-brand-600" />
-                      <span>Multi-Language Product Names (Regional Scripts)</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                          Tamil (தமிழ்)
-                        </label>
-                        <input
-                          type="text"
-                          value={newItemForm.translations.ta}
-                          onChange={(e) => setNewItemForm({
-                            ...newItemForm,
-                            translations: { ...newItemForm.translations, ta: e.target.value }
-                          })}
-                          placeholder="எ.கா. தக்காளி, பால்..."
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold focus:outline-none focus:border-brand-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                          Hindi (हिन्दी)
-                        </label>
-                        <input
-                          type="text"
-                          value={newItemForm.translations.hi}
-                          onChange={(e) => setNewItemForm({
-                            ...newItemForm,
-                            translations: { ...newItemForm.translations, hi: e.target.value }
-                          })}
-                          placeholder="उदा. टमाटर, दूध..."
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold focus:outline-none focus:border-brand-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                          Telugu (తెలుగు)
-                        </label>
-                        <input
-                          type="text"
-                          value={newItemForm.translations.te}
-                          onChange={(e) => setNewItemForm({
-                            ...newItemForm,
-                            translations: { ...newItemForm.translations, te: e.target.value }
-                          })}
-                          placeholder="ఉదా. టమోటా, పాలు..."
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold focus:outline-none focus:border-brand-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                          Kannada (ಕನ್ನಡ)
-                        </label>
-                        <input
-                          type="text"
-                          value={newItemForm.translations.kn}
-                          onChange={(e) => setNewItemForm({
-                            ...newItemForm,
-                            translations: { ...newItemForm.translations, kn: e.target.value }
-                          })}
-                          placeholder="ಉದಾ. ಟೊಮೆಟೊ, ಹಾಲು..."
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold focus:outline-none focus:border-brand-500"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                          Malayalam (മലയാളം)
-                        </label>
-                        <input
-                          type="text"
-                          value={newItemForm.translations.ml}
-                          onChange={(e) => setNewItemForm({
-                            ...newItemForm,
-                            translations: { ...newItemForm.translations, ml: e.target.value }
-                          })}
-                          placeholder="ഉദാ. തക്കാളി, പാൽ..."
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold focus:outline-none focus:border-brand-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
@@ -981,17 +883,38 @@ export default function StockInward() {
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedItemId('');
-                        setSelectedItem(null);
-                        setSearchItemQuery('');
-                      }}
-                      className="text-xs text-slate-500 hover:text-slate-700 font-bold px-2.5 py-1.5 rounded-lg bg-white border border-slate-200"
-                    >
-                      Change
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {selectedItem.currentStock > 0 && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!window.confirm(`Reset inventory for "${selectedItem.name}" to 0?`)) return;
+                            try {
+                              const res = await axios.delete(`/api/items/${selectedItem._id}/stock`);
+                              setSelectedItem(res.data.item);
+                              await loadAllItems();
+                              showToast(`Stock for ${selectedItem.name} reset to 0`, 'info');
+                            } catch (err) {
+                              showToast('Failed to reset stock: ' + (err.response?.data?.message || err.message), 'error');
+                            }
+                          }}
+                          className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold px-2.5 py-1.5 rounded-lg border border-red-200 transition-colors"
+                        >
+                          Zero Stock
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedItemId('');
+                          setSelectedItem(null);
+                          setSearchItemQuery('');
+                        }}
+                        className="text-xs text-slate-500 hover:text-slate-700 font-bold px-2.5 py-1.5 rounded-lg bg-white border border-slate-200"
+                      >
+                        Change
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

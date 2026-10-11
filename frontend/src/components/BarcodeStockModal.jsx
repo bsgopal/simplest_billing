@@ -25,6 +25,7 @@ import {
   Globe
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import TransliterateInput from './TransliterateInput';
 
 export default function BarcodeStockModal({
   isOpen,
@@ -41,7 +42,6 @@ export default function BarcodeStockModal({
 
   // New Item Quick Creation inline form
   const [isCreatingNew, setIsCreatingNew] = useState(false);
-  const [showTranslations, setShowTranslations] = useState(false);
   const [newItemForm, setNewItemForm] = useState({
     name: '',
     translations: {
@@ -60,15 +60,6 @@ export default function BarcodeStockModal({
     isQuickItem: false,
     gstPercent: 0
   });
-
-  const languageTabs = [
-    { code: 'en', label: 'English', native: 'English' },
-    { code: 'ta', label: 'Tamil', native: 'தமிழ்' },
-    { code: 'hi', label: 'Hindi', native: 'हिन्दी' },
-    { code: 'te', label: 'Telugu', native: 'తెలుగు' },
-    { code: 'kn', label: 'Kannada', native: 'ಕನ್ನಡ' },
-    { code: 'ml', label: 'Malayalam', native: 'മലയാളം' }
-  ];
 
   const getItemDisplayName = (it, lang = currentLang) => {
     if (!it) return '';
@@ -356,16 +347,22 @@ export default function BarcodeStockModal({
   // Handle Quick Creation of New Item
   const handleCreateNewItem = async (e) => {
     e.preventDefault();
-    if (!newItemForm.name.trim() || !newItemForm.sellingPrice) {
+    const cleanName = newItemForm.name.trim();
+    if (!cleanName || !newItemForm.sellingPrice) {
       alert('Item Name and Selling Price are required');
       return;
     }
 
     setSubmitting(true);
     try {
+      const autoTranslations = { ...(newItemForm.translations || {}) };
+      if (currentLang !== 'en' && cleanName) {
+        autoTranslations[currentLang] = cleanName;
+      }
+
       const payload = {
-        name: newItemForm.name.trim(),
-        translations: newItemForm.translations || {},
+        name: cleanName,
+        translations: autoTranslations,
         barcode: barcode.trim() || undefined,
         category: newItemForm.category.trim() || 'General',
         unit: newItemForm.unit,
@@ -504,121 +501,18 @@ export default function BarcodeStockModal({
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                      Product Name (English / Primary) *
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowTranslations(!showTranslations)}
-                      className="text-[10px] font-bold text-brand-800 hover:text-brand-900 bg-brand-50 hover:bg-brand-100 px-2 py-0.5 rounded-md border border-brand-200 flex items-center gap-1 transition"
-                    >
-                      <Globe className="w-3 h-3 text-brand-600" />
-                      <span>{showTranslations ? 'Hide Regional Names' : '+ Multi-Language Names'}</span>
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    autoFocus
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Product Name *
+                  </label>
+                  <TransliterateInput
                     value={newItemForm.name}
-                    onChange={(e) => setNewItemForm({ ...newItemForm, name: e.target.value })}
+                    onChange={(val) => setNewItemForm({ ...newItemForm, name: val })}
                     placeholder="e.g. Tomato, Parle-G 250g, Aavin Milk 500ml..."
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm font-bold placeholder:text-slate-400 focus:outline-none focus:border-brand-500"
+                    required
+                    autoFocus
                   />
                 </div>
-
-                {/* Multi-Language Regional Names Section */}
-                {showTranslations && (
-                  <div className="p-3 bg-brand-50/50 rounded-2xl border border-brand-200 space-y-2.5 animate-in fade-in duration-150">
-                    <div className="flex items-center gap-1.5 text-xs font-black text-brand-900">
-                      <Globe className="w-3.5 h-3.5 text-brand-600" />
-                      <span>Multi-Language Regional Names</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                          Tamil (தமிழ்)
-                        </label>
-                        <input
-                          type="text"
-                          value={newItemForm.translations.ta}
-                          onChange={(e) => setNewItemForm({
-                            ...newItemForm,
-                            translations: { ...newItemForm.translations, ta: e.target.value }
-                          })}
-                          placeholder="எ.கா. தக்காளி, பால்..."
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold focus:outline-none focus:border-brand-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                          Hindi (हिन्दी)
-                        </label>
-                        <input
-                          type="text"
-                          value={newItemForm.translations.hi}
-                          onChange={(e) => setNewItemForm({
-                            ...newItemForm,
-                            translations: { ...newItemForm.translations, hi: e.target.value }
-                          })}
-                          placeholder="उदा. टमाटर, दूध..."
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold focus:outline-none focus:border-brand-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                          Telugu (తెలుగు)
-                        </label>
-                        <input
-                          type="text"
-                          value={newItemForm.translations.te}
-                          onChange={(e) => setNewItemForm({
-                            ...newItemForm,
-                            translations: { ...newItemForm.translations, te: e.target.value }
-                          })}
-                          placeholder="ఉదా. టమోటా, పాలు..."
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold focus:outline-none focus:border-brand-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                          Kannada (ಕನ್ನಡ)
-                        </label>
-                        <input
-                          type="text"
-                          value={newItemForm.translations.kn}
-                          onChange={(e) => setNewItemForm({
-                            ...newItemForm,
-                            translations: { ...newItemForm.translations, kn: e.target.value }
-                          })}
-                          placeholder="ಉದಾ. ಟೊಮೆಟೊ, ಹಾಲು..."
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold focus:outline-none focus:border-brand-500"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                          Malayalam (മലയാളം)
-                        </label>
-                        <input
-                          type="text"
-                          value={newItemForm.translations.ml}
-                          onChange={(e) => setNewItemForm({
-                            ...newItemForm,
-                            translations: { ...newItemForm.translations, ml: e.target.value }
-                          })}
-                          placeholder="ഉദാ. തക്കാളി, പാൽ..."
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold focus:outline-none focus:border-brand-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div>
@@ -803,17 +697,39 @@ export default function BarcodeStockModal({
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedItemId('');
-                        setSelectedItem(null);
-                        setSearchItemQuery('');
-                      }}
-                      className="text-xs text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg bg-slate-100"
-                    >
-                      Change
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {selectedItem.currentStock > 0 && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!window.confirm(`Reset inventory for "${selectedItem.name}" to 0?`)) return;
+                            try {
+                              const res = await axios.delete(`/api/items/${selectedItem._id}/stock`);
+                              setSelectedItem(res.data.item);
+                              await loadAllItems();
+                              if (onItemSaved) onItemSaved();
+                              setSaveSuccessMsg(`Stock for "${selectedItem.name}" reset to 0.`);
+                            } catch (err) {
+                              alert('Failed to reset stock: ' + (err.response?.data?.message || err.message));
+                            }
+                          }}
+                          className="text-xs text-red-600 hover:text-red-700 font-bold px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 transition-colors"
+                        >
+                          Zero Stock
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedItemId('');
+                          setSelectedItem(null);
+                          setSearchItemQuery('');
+                        }}
+                        className="text-xs text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg bg-slate-100"
+                      >
+                        Change
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

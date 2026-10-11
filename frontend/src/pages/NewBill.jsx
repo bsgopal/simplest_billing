@@ -432,13 +432,23 @@ export default function NewBill() {
             )}
           </div>
 
-          {/* Item Catalog Grid */}
+          {/* Item Catalog Grid - Only displays when searching by name or barcode */}
           <div className="flex-1 overflow-y-auto p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-2.5 content-start">
-            {filteredCatalog.length === 0 ? (
+            {!searchQuery.trim() ? (
+              <div className="col-span-full py-16 flex flex-col items-center justify-center text-center text-slate-400">
+                <div className="w-16 h-16 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-600 mb-3 shadow-2xs">
+                  <Barcode className="w-8 h-8" />
+                </div>
+                <h3 className="font-extrabold text-slate-800 text-sm">Ready to Scan or Search</h3>
+                <p className="text-xs text-slate-400 mt-1 max-w-xs">
+                  Scan a barcode or type item name above to add products to the bill
+                </p>
+              </div>
+            ) : filteredCatalog.length === 0 ? (
               <div className="col-span-full py-12 text-center text-slate-400">
                 <Tag className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                <p className="text-xs font-bold">No matching items found</p>
-                <p className="text-[11px]">Type item name or scan barcode</p>
+                <p className="text-xs font-bold text-slate-700">No matching items found</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Check spelling or scan item barcode</p>
               </div>
             ) : (
               filteredCatalog.map((item) => (

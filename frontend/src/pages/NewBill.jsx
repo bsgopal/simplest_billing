@@ -335,7 +335,7 @@ export default function NewBill() {
   };
 
   return (
-    <div className="p-2 sm:p-4 max-w-7xl mx-auto h-[calc(100vh-65px)] flex flex-col pb-20 md:pb-2 relative">
+    <div className="h-[calc(100vh-80px)] flex flex-col relative">
       
       {/* Toast Notification Container (Fixed Top Right) */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md w-full pointer-events-none px-3">

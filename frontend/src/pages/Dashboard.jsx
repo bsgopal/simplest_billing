@@ -84,7 +84,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4 pb-28 md:pb-8 select-none">
+    <div className="max-w-4xl mx-auto space-y-3 pb-20 md:pb-4 select-none">
       
       {/* 1. TOP STORE HEADER (Vyapar / Retail Mobile Format) */}
       <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-between">

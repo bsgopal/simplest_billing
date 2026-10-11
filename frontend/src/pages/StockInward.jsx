@@ -562,7 +562,7 @@ export default function StockInward() {
   });
 
   return (
-    <div className="p-3 sm:p-5 max-w-7xl mx-auto space-y-4 pb-24 md:pb-8 relative">
+    <div className="space-y-3 relative">
       
       {/* Toast Notification Container (Fixed Top Right) */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md w-full pointer-events-none px-3">
@@ -594,7 +594,7 @@ export default function StockInward() {
       </div>
 
       {/* Top Header */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <Barcode className="w-5 h-5 text-brand-600" />

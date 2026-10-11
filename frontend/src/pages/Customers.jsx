@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Users, 
@@ -121,9 +121,9 @@ export default function Customers() {
   };
 
   return (
-    <div className="p-3 sm:p-5 max-w-7xl mx-auto space-y-4 pb-20 md:pb-6">
+    <div className="space-y-3">
       {/* Top Banner */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <Users className="w-5 h-5 text-amber-600" />

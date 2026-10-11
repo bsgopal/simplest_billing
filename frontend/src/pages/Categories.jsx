@@ -232,150 +232,183 @@ export default function Categories() {
   };
 
   return (
-    <div className="p-3 sm:p-5 max-w-7xl mx-auto space-y-4 pb-20 md:pb-6">
-      
-      {/* Top Header */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Layers className="w-5 h-5 text-brand-600" />
-            Categories Management
-          </h2>
-          <p className="text-xs text-slate-500 font-medium">
-            Organize products by category with auto-transliterated regional names
-          </p>
+    <div className="space-y-3">
+      {/* Top Header & Compact Toolbar */}
+      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-brand-50 text-brand-700 rounded-lg shrink-0">
+            <Layers className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-black text-slate-900 leading-tight">
+              Categories Management
+            </h2>
+            <p className="text-[11px] text-slate-500 font-medium">
+              Dynamic category catalog with auto-transliterated regional script
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-60">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search categories..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:outline-none focus:border-brand-500"
+            />
+          </div>
+
           <button
             onClick={fetchCategories}
-            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition"
+            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition"
             title="Refresh"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
 
           <button
             onClick={() => setUnitsModalOpen(true)}
-            className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-black rounded-xl text-xs border border-indigo-200 transition shadow-xs active:scale-98"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-black rounded-lg text-xs border border-indigo-200 transition"
           >
-            <Scale className="w-4 h-4 text-indigo-600" />
-            <span>Manage Units ({units.length})</span>
+            <Scale className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Units ({units.length})</span>
           </button>
 
           <button
             onClick={handleOpenAdd}
-            className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-slate-950 font-black rounded-xl text-xs transition shadow-xs active:scale-98"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-500 hover:bg-brand-600 text-slate-950 font-black rounded-lg text-xs transition shadow-xs active:scale-98"
           >
-            <Plus className="w-4 h-4" />
-            <span>+ Create Category</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>+ Add Category</span>
           </button>
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-96">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search categories by English or Regional name..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-brand-500"
-          />
+      {/* Categories Table */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider">
+              <tr>
+                <th className="px-3.5 py-2.5 w-12 text-center">#</th>
+                <th className="px-3.5 py-2.5">Category Name</th>
+                <th className="px-3.5 py-2.5">Description</th>
+                <th className="px-3.5 py-2.5">Regional Translations</th>
+                <th className="px-3.5 py-2.5 text-center">Linked Items</th>
+                <th className="px-3.5 py-2.5 text-center">Display Order</th>
+                <th className="px-3.5 py-2.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium">
+              {loading ? (
+                <tr>
+                  <td colSpan="7" className="text-center py-10 text-slate-400 font-bold">
+                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-brand-600" />
+                    Loading categories...
+                  </td>
+                </tr>
+              ) : categories.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="text-center py-12 text-slate-400">
+                    <Layers className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                    <p className="font-bold text-slate-700">No categories found</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Click "+ Add Category" to create your first category.</p>
+                  </td>
+                </tr>
+              ) : (
+                categories.map((cat, idx) => (
+                  <tr key={cat._id} className="hover:bg-slate-50/80 transition group">
+                    <td className="px-3.5 py-2.5 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span 
+                          className="w-2.5 h-2.5 rounded-full shrink-0" 
+                          style={{ backgroundColor: cat.color || '#84cc16' }}
+                        />
+                        <span className="text-[11px] font-bold text-slate-400">{idx + 1}</span>
+                      </div>
+                    </td>
+                    <td className="px-3.5 py-2.5">
+                      <div className="font-black text-slate-900 text-sm flex items-center gap-2">
+                        <span>{getCategoryDisplayName(cat)}</span>
+                        {currentLang !== 'en' && cat.translations?.[currentLang] && cat.name !== cat.translations[currentLang] && (
+                          <span className="text-[11px] font-normal text-slate-400">({cat.name})</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3.5 py-2.5 text-slate-500 max-w-xs truncate">
+                      {cat.description || <span className="text-slate-300 italic text-[11px]">—</span>}
+                    </td>
+                    <td className="px-3.5 py-2.5">
+                      <div className="flex flex-wrap gap-1">
+                        {cat.translations?.ta && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand-50 text-brand-900 border border-brand-200">
+                            தமிழ்: {cat.translations.ta}
+                          </span>
+                        )}
+                        {cat.translations?.hi && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200">
+                            हिन्दी: {cat.translations.hi}
+                          </span>
+                        )}
+                        {cat.translations?.te && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-900 border border-emerald-200">
+                            తెలుగు: {cat.translations.te}
+                          </span>
+                        )}
+                        {cat.translations?.kn && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200">
+                            ಕನ್ನಡ: {cat.translations.kn}
+                          </span>
+                        )}
+                        {cat.translations?.ml && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-900 border border-purple-200">
+                            മലയാളം: {cat.translations.ml}
+                          </span>
+                        )}
+                        {(!cat.translations || Object.values(cat.translations).every(v => !v)) && (
+                          <span className="text-[10px] text-slate-400 italic">No regional translations</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3.5 py-2.5 text-center">
+                      <span className="px-2 py-0.5 rounded-full font-bold text-[10px] bg-slate-100 text-slate-700 border border-slate-200">
+                        {cat.itemCount || 0} items
+                      </span>
+                    </td>
+                    <td className="px-3.5 py-2.5 text-center font-bold text-slate-600">
+                      {cat.displayOrder || idx + 1}
+                    </td>
+                    <td className="px-3.5 py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => handleOpenEdit(cat)}
+                          className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
+                          title="Edit Category"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(cat)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                          title="Delete Category"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-        <div className="text-xs text-slate-500 font-bold self-end sm:self-center">
-          Total: <span className="text-slate-900 font-black">{categories.length}</span> categories
+        <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 font-bold">
+          <span>Total: <strong className="text-slate-900">{categories.length}</strong> categories</span>
+          <span>Synced with Item Master</span>
         </div>
-      </div>
-
-      {/* Categories Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-        {loading ? (
-          <div className="col-span-full py-16 text-center text-slate-400 font-bold">
-            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-brand-600" />
-            Loading categories from database...
-          </div>
-        ) : categories.length === 0 ? (
-          <div className="col-span-full py-16 text-center bg-white rounded-2xl border border-slate-200">
-            <Layers className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-            <h3 className="font-bold text-slate-700 text-sm">No Categories Found</h3>
-            <p className="text-xs text-slate-400 mt-1">Click "+ Create Category" to add your first category.</p>
-          </div>
-        ) : (
-          categories.map((cat) => (
-            <div
-              key={cat._id}
-              className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-brand-400 transition shadow-xs flex flex-col justify-between group"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <span 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: cat.color || '#84cc16' }}
-                  />
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                    {cat.itemCount || 0} items
-                  </span>
-                </div>
-
-                <div className="mt-3">
-                  <h3 className="text-base font-black text-slate-900 leading-tight">
-                    {getCategoryDisplayName(cat)}
-                  </h3>
-                  {currentLang !== 'en' && cat.translations?.[currentLang] && (
-                    <p className="text-[11px] text-slate-400 mt-0.5 font-medium">
-                      English: {cat.name}
-                    </p>
-                  )}
-                  {cat.description && (
-                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                      {cat.description}
-                    </p>
-                  )}
-                </div>
-
-                {/* Multi-language Translation Badges Preview */}
-                <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap gap-1">
-                  {cat.translations?.ta && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-brand-50 text-brand-900 border border-brand-200">
-                      தமிழ்: {cat.translations.ta}
-                    </span>
-                  )}
-                  {cat.translations?.hi && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200">
-                      हिन्दी: {cat.translations.hi}
-                    </span>
-                  )}
-                  {cat.translations?.te && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-900 border border-emerald-200">
-                      తెలుగు: {cat.translations.te}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Actions Footer */}
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end gap-1.5">
-                <button
-                  onClick={() => handleOpenEdit(cat)}
-                  className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
-                  title="Edit Category"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(cat)}
-                  className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition"
-                  title="Delete Category"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))
-        )}
       </div>
 
       {/* CREATE / EDIT CATEGORY MODAL */}

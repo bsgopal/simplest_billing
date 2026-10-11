@@ -80,118 +80,152 @@ export default function Suppliers() {
   const totalPayable = suppliers.reduce((acc, s) => acc + (s.currentBalance || 0), 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Top Banner & KPI */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3">
-            <Truck className="w-7 h-7 text-brand-600" />
-            Suppliers &amp; Vendors
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Manage wholesale distributors, stock purchases and supplier payables
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-brand-50 text-brand-700 rounded-lg shrink-0">
+            <Truck className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+              Suppliers &amp; Vendors
+            </h1>
+            <p className="text-[11px] text-slate-500 font-medium">
+              Manage wholesale distributors, stock purchases and supplier payables
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right mr-3 hidden sm:block">
-            <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">Total Payable</div>
-            <div className="text-xl font-black text-rose-600">₹{totalPayable.toFixed(2)}</div>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="text-right px-3 py-1 bg-rose-50 border border-rose-200 rounded-lg">
+            <span className="text-[10px] text-rose-500 uppercase font-black tracking-wider mr-1.5">Total Payable:</span>
+            <span className="text-sm font-black text-rose-700">₹{totalPayable.toFixed(2)}</span>
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-brand-500 hover:bg-brand-600 text-slate-950 font-black transition shadow-xs active:scale-98"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-slate-950 font-black text-xs transition shadow-xs active:scale-98"
           >
-            <Plus className="w-5 h-5" />
-            Add Supplier
+            <Plus className="w-4 h-4" />
+            <span>Add Supplier</span>
           </button>
         </div>
       </div>
 
-      {/* Mobile KPI */}
-      <div className="sm:hidden bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-xs">
-        <span className="text-sm text-slate-600 font-bold">Total Pending Payable:</span>
-        <span className="text-lg font-black text-rose-600">₹{totalPayable.toFixed(2)}</span>
-      </div>
-
       {/* Search Input */}
-      <div className="relative">
-        <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by supplier name, company or phone..."
-          className="w-full pl-12 pr-4 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold placeholder:text-slate-400 focus:outline-none focus:border-brand-500 shadow-2xs"
-        />
+      <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by supplier name, company or phone..."
+            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-500"
+          />
+        </div>
+        <div className="text-xs text-slate-500 font-bold shrink-0 px-2">
+          Total: <strong className="text-slate-900">{filtered.length}</strong> suppliers
+        </div>
       </div>
 
-      {/* Suppliers Grid / List */}
-      {loading ? (
-        <div className="text-center py-12 text-slate-400 font-bold">Loading suppliers...</div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300 text-slate-400">
-          <Truck className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-          <p className="text-lg font-bold text-slate-700">No suppliers found</p>
-          <p className="text-sm text-slate-500 mt-1">Add your wholesale vendors to keep track of purchase ledger</p>
+      {/* Suppliers Table */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider">
+              <tr>
+                <th className="px-3.5 py-2.5">Supplier Name</th>
+                <th className="px-3.5 py-2.5">Company</th>
+                <th className="px-3.5 py-2.5">Phone</th>
+                <th className="px-3.5 py-2.5">GSTIN</th>
+                <th className="px-3.5 py-2.5 text-right">Payable Balance</th>
+                <th className="px-3.5 py-2.5 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium">
+              {loading ? (
+                <tr>
+                  <td colSpan="6" className="text-center py-10 text-slate-400 font-bold">
+                    Loading suppliers...
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="text-center py-12 text-slate-400">
+                    <Truck className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                    <p className="font-bold text-slate-700">No suppliers found</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Add your wholesale vendors to keep track of purchase ledger</p>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((s) => (
+                  <tr key={s._id} className="hover:bg-slate-50/80 transition">
+                    <td className="px-3.5 py-2.5 font-black text-slate-900 text-sm">
+                      {s.name}
+                    </td>
+                    <td className="px-3.5 py-2.5 text-slate-600 font-semibold">
+                      {s.companyName ? (
+                        <div className="flex items-center gap-1.5">
+                          <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{s.companyName}</span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-300 italic">—</span>
+                      )}
+                    </td>
+                    <td className="px-3.5 py-2.5 text-slate-600 font-mono">
+                      {s.phone ? (
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{s.phone}</span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-300 italic">—</span>
+                      )}
+                    </td>
+                    <td className="px-3.5 py-2.5 font-mono text-slate-600">
+                      {s.gstin ? (
+                        <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-bold text-slate-700">
+                          {s.gstin}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300 italic">—</span>
+                      )}
+                    </td>
+                    <td className="px-3.5 py-2.5 text-right font-black text-sm">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-black inline-block ${
+                          (s.currentBalance || 0) > 0
+                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                            : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        }`}
+                      >
+                        {(s.currentBalance || 0) > 0 ? `₹${s.currentBalance.toFixed(2)}` : '₹0.00 (Clear)'}
+                      </span>
+                    </td>
+                    <td className="px-3.5 py-2.5 text-center">
+                      <button
+                        onClick={() => {
+                          setSelectedSupplier(s);
+                          setShowPayModal(true);
+                        }}
+                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 rounded-lg text-xs font-bold transition inline-flex items-center gap-1"
+                      >
+                        <ArrowDownLeft className="w-3.5 h-3.5" />
+                        <span>Pay Supplier</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((s) => (
-            <div
-              key={s._id}
-              className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-slate-300 hover:shadow-xs transition flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-extrabold text-slate-900 text-lg">{s.name}</h3>
-                  <span
-                    className={`text-xs px-2.5 py-1 rounded-full font-bold ${
-                      (s.currentBalance || 0) > 0
-                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                        : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                    }`}
-                  >
-                    {(s.currentBalance || 0) > 0 ? `Payable: ₹${s.currentBalance}` : 'All Clear'}
-                  </span>
-                </div>
-
-                {s.companyName && (
-                  <div className="flex items-center gap-2 text-sm text-slate-600 mb-1.5 font-medium">
-                    <Building2 className="w-4 h-4 text-slate-400" />
-                    <span>{s.companyName}</span>
-                  </div>
-                )}
-
-                {s.phone && (
-                  <div className="flex items-center gap-2 text-sm text-slate-500 mb-1.5 font-mono">
-                    <Phone className="w-4 h-4 text-slate-400" />
-                    <span>{s.phone}</span>
-                  </div>
-                )}
-
-                {s.gstin && (
-                  <div className="text-xs text-slate-400 font-mono mt-1">
-                    GSTIN: <span className="text-slate-700 font-bold">{s.gstin}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-5 pt-4 border-t border-slate-100 flex gap-2">
-                <button
-                  onClick={() => {
-                    setSelectedSupplier(s);
-                    setShowPayModal(true);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 rounded-xl text-sm font-bold transition"
-                >
-                  <ArrowDownLeft className="w-4 h-4" />
-                  Pay Supplier
-                </button>
-              </div>
-            </div>
-          ))}
+        <div className="px-3.5 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 font-bold">
+          <span>Showing {filtered.length} suppliers</span>
+          <span>Supplier Purchase Ledger</span>
         </div>
-      )}
+      </div>
 
       {/* Add Supplier Modal */}
       {showAddModal && (

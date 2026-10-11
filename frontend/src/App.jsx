@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { BillingProvider } from './context/BillingContext';
 import { LanguageProvider } from './context/LanguageContext';
+import { ToastProvider } from './context/ToastContext';
 
 // Components
 import Header from './components/Header';
@@ -79,10 +80,12 @@ export default function App() {
       <AuthProvider>
         <LanguageProvider>
           <BillingProvider>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/*" element={<ProtectedLayout />} />
-            </Routes>
+            <ToastProvider>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/*" element={<ProtectedLayout />} />
+              </Routes>
+            </ToastProvider>
           </BillingProvider>
         </LanguageProvider>
       </AuthProvider>

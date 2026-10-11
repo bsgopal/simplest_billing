@@ -25,6 +25,7 @@ import {
   Globe
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import { useToast } from '../context/ToastContext';
 import TransliterateInput from './TransliterateInput';
 
 export default function BarcodeStockModal({
@@ -34,6 +35,7 @@ export default function BarcodeStockModal({
   categories = []
 }) {
   const { currentLang } = useLanguage();
+  const { toast, confirm } = useToast();
   const [allItems, setAllItems] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
@@ -702,18 +704,28 @@ export default function BarcodeStockModal({
                         <button
                           type="button"
                           onClick={async () => {
-                            if (!window.confirm(`Reset inventory for "${selectedItem.name}" to 0?`)) return;
+                            const ok = await confirm({
+                              title: 'Reset Stock to 0',
+                              message: `Reset inventory for "${selectedItem.name}" to 0?`,
+                              description: 'All linked barcodes will be cleared.',
+                              confirmText: 'Zero Stock',
+                              cancelText: 'Cancel',
+                              type: 'warning'
+                            });
+                            if (!ok) return;
+
                             try {
                               const res = await axios.delete(`/api/items/${selectedItem._id}/stock`);
                               setSelectedItem(res.data.item);
                               await loadAllItems();
                               if (onItemSaved) onItemSaved();
                               setSaveSuccessMsg(`Stock for "${selectedItem.name}" reset to 0.`);
+                              toast.success(`Stock for "${selectedItem.name}" reset to 0`);
                             } catch (err) {
-                              alert('Failed to reset stock: ' + (err.response?.data?.message || err.message));
+                              toast.error('Failed to reset stock: ' + (err.response?.data?.message || err.message));
                             }
                           }}
-                          className="text-xs text-red-600 hover:text-red-700 font-bold px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 transition-colors"
+                          className="text-xs text-red-600 hover:text-red-700 font-bold px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 transition-colors cursor-pointer"
                         >
                           Zero Stock
                         </button>

@@ -17,11 +17,13 @@ import {
   Trash2
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import { useToast } from '../context/ToastContext';
 import TransliterateInput from '../components/TransliterateInput';
 import BarcodeStockModal from '../components/BarcodeStockModal';
 
 export default function Items() {
   const { currentLang } = useLanguage();
+  const { toast, confirm, prompt } = useToast();
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [units, setUnits] = useState([]);
@@ -167,19 +169,19 @@ export default function Items() {
   const handleSaveItem = async (e) => {
     e.preventDefault();
     if (!formData.name?.trim()) {
-      alert('Product Name is required');
+      toast.warning('Product Name is required');
       return;
     }
     if (!formData.category?.trim() || formData.category === 'All') {
-      alert('Category is required! A product cannot be created without a category.');
+      toast.warning('Category is required! A product cannot be created without a category.');
       return;
     }
     if (!formData.unit?.trim()) {
-      alert('Unit is required');
+      toast.warning('Unit is required');
       return;
     }
     if (formData.sellingPrice === undefined || formData.sellingPrice === '') {
-      alert('Selling Price is required');
+      toast.warning('Selling Price is required');
       return;
     }
 
@@ -194,33 +196,55 @@ export default function Items() {
       };
       if (editingItem) {
         await axios.put(`/api/items/${editingItem._id}`, payload);
+        toast.success(`Product "${payload.name}" updated successfully`);
       } else {
         await axios.post('/api/items', payload);
+        toast.success(`Product "${payload.name}" created successfully`);
       }
       setModalOpen(false);
       fetchItems();
     } catch (err) {
-      alert(err.response?.data?.message || 'Error saving product');
+      toast.error(err.response?.data?.message || 'Error saving product');
     }
   };
 
   const handleDeleteItem = async (it) => {
-    if (!window.confirm(`Are you sure you want to delete "${it.name}"? This will permanently delete it from inventory and catalog.`)) return;
+    const ok = await confirm({
+      title: 'Delete Product',
+      message: `Are you sure you want to delete "${it.name}"?`,
+      description: 'This will permanently delete it from inventory and catalog.',
+      confirmText: 'Delete Product',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
+
     try {
       await axios.delete(`/api/items/${it._id}`);
       fetchItems();
+      toast.success(`"${it.name}" deleted successfully`);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete product');
+      toast.error(err.response?.data?.message || 'Failed to delete product');
     }
   };
 
   const handleResetStock = async (it) => {
-    if (!window.confirm(`Reset stock for "${it.name}" to 0 and remove all linked barcodes?`)) return;
+    const ok = await confirm({
+      title: 'Reset Stock to 0',
+      message: `Reset stock for "${it.name}" to 0?`,
+      description: 'All linked individual barcodes will also be cleared.',
+      confirmText: 'Zero Stock',
+      cancelText: 'Cancel',
+      type: 'warning'
+    });
+    if (!ok) return;
+
     try {
       await axios.delete(`/api/items/${it._id}/stock`);
       fetchItems();
+      toast.success(`Stock for "${it.name}" reset to 0`);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to reset stock');
+      toast.error(err.response?.data?.message || 'Failed to reset stock');
     }
   };
 
@@ -240,8 +264,9 @@ export default function Items() {
       setAdjustQty('');
       setAdjustNote('');
       fetchItems();
+      toast.success('Stock adjusted successfully');
     } catch (err) {
-      alert(err.response?.data?.message || 'Error adjusting stock');
+      toast.error(err.response?.data?.message || 'Error adjusting stock');
     }
   };
 
@@ -458,19 +483,24 @@ export default function Items() {
                   <select
                     required
                     value={formData.category}
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       if (e.target.value === '__add_category__') {
-                        const newCat = prompt('Enter new category name:');
+                        const newCat = await prompt({
+                          title: 'Create Category',
+                          message: 'Enter new category name:',
+                          placeholder: 'e.g. Snacks, Dairy, Spices...',
+                          confirmText: 'Add Category'
+                        });
                         if (newCat && newCat.trim()) {
                           const cleanCat = newCat.trim();
-                          axios.post('/api/categories', { name: cleanCat })
-                            .then(() => {
-                              setCategories(prev => Array.from(new Set([...prev, cleanCat])));
-                              setFormData({ ...formData, category: cleanCat });
-                            })
-                            .catch((err) => {
-                              alert(err.response?.data?.message || 'Error creating category');
-                            });
+                          try {
+                            await axios.post('/api/categories', { name: cleanCat });
+                            setCategories((prev) => Array.from(new Set([...prev, cleanCat])));
+                            setFormData({ ...formData, category: cleanCat });
+                            toast.success(`Category "${cleanCat}" created`);
+                          } catch (err) {
+                            toast.error(err.response?.data?.message || 'Error creating category');
+                          }
                         }
                       } else {
                         setFormData({ ...formData, category: e.target.value });

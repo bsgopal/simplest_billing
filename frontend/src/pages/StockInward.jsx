@@ -28,10 +28,12 @@ import {
   Trash2
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import { useToast } from '../context/ToastContext';
 import TransliterateInput from '../components/TransliterateInput';
 
 export default function StockInward() {
   const { currentLang } = useLanguage();
+  const { toast, confirm } = useToast();
   const [allItems, setAllItems] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
@@ -430,17 +432,25 @@ export default function StockInward() {
   };
 
   // Clear all staged items
-  const handleClearQueue = () => {
+  const handleClearQueue = async () => {
     if (scanQueue.length === 0) return;
-    if (window.confirm('Clear all items from the inward table?')) {
+    const ok = await confirm({
+      title: 'Clear Inward Table',
+      message: 'Are you sure you want to clear all items from the inward staging table?',
+      confirmText: 'Clear All',
+      cancelText: 'Cancel',
+      type: 'warning'
+    });
+    if (ok) {
       setScanQueue([]);
+      toast.info('Inward table cleared');
     }
   };
 
   // Commit and Create Bulk Stock
   const handleBulkCommitStock = async () => {
     if (scanQueue.length === 0) {
-      alert('Inward table is empty! Scan one or more barcodes first.');
+      toast.warning('Inward table is empty! Scan one or more barcodes first.');
       return;
     }
 
@@ -451,7 +461,7 @@ export default function StockInward() {
       });
 
       playSuccessSound();
-      showToast(`Success! ${scanQueue.length} items created in stock!`, 'success', 5000);
+      toast.success(`Success! ${scanQueue.length} items added into stock!`);
 
       // Refresh items list
       await loadAllItems();
@@ -460,7 +470,7 @@ export default function StockInward() {
       setScanQueue([]);
     } catch (err) {
       console.error('Bulk commit error:', err);
-      showToast(err.response?.data?.message || 'Failed to commit stock inward', 'error');
+      toast.error(err.response?.data?.message || 'Failed to commit stock inward');
     } finally {
       setSubmitting(false);
     }
@@ -470,15 +480,15 @@ export default function StockInward() {
   const handleCreateNewItem = async (e) => {
     e.preventDefault();
     if (!newItemForm.name?.trim()) {
-      alert('Product Name is required');
+      toast.warning('Product Name is required');
       return;
     }
     if (!newItemForm.category?.trim() || newItemForm.category === 'All') {
-      alert('Category is required! A product cannot be created without a category.');
+      toast.warning('Category is required! A product cannot be created without a category.');
       return;
     }
     if (newItemForm.sellingPrice === undefined || newItemForm.sellingPrice === '') {
-      alert('Selling Price is required');
+      toast.warning('Selling Price is required');
       return;
     }
 
@@ -888,17 +898,26 @@ export default function StockInward() {
                         <button
                           type="button"
                           onClick={async () => {
-                            if (!window.confirm(`Reset inventory for "${selectedItem.name}" to 0?`)) return;
+                            const ok = await confirm({
+                              title: 'Reset Stock to 0',
+                              message: `Reset live inventory for "${selectedItem.name}" to 0?`,
+                              description: 'All linked individual barcodes will also be cleared.',
+                              confirmText: 'Zero Stock',
+                              cancelText: 'Cancel',
+                              type: 'warning'
+                            });
+                            if (!ok) return;
+
                             try {
                               const res = await axios.delete(`/api/items/${selectedItem._id}/stock`);
                               setSelectedItem(res.data.item);
                               await loadAllItems();
-                              showToast(`Stock for ${selectedItem.name} reset to 0`, 'info');
+                              toast.success(`Stock for "${selectedItem.name}" reset to 0`);
                             } catch (err) {
-                              showToast('Failed to reset stock: ' + (err.response?.data?.message || err.message), 'error');
+                              toast.error('Failed to reset stock: ' + (err.response?.data?.message || err.message));
                             }
                           }}
-                          className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold px-2.5 py-1.5 rounded-lg border border-red-200 transition-colors"
+                          className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 font-bold px-2.5 py-1.5 rounded-lg border border-red-200 transition-colors cursor-pointer"
                         >
                           Zero Stock
                         </button>

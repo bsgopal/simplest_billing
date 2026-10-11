@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { TrendingDown, Plus, Trash2, Calendar, IndianRupee } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 export default function Expenses() {
+  const { toast, confirm } = useToast();
   const [expenses, setExpenses] = useState([]);
   const [totalToday, setTotalToday] = useState(0);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -65,18 +67,27 @@ export default function Expenses() {
       setCustomCategory('');
       fetchExpenses();
       fetchCategories();
+      toast.success('Expense added successfully');
     } catch (err) {
-      alert('Error adding expense');
+      toast.error('Error adding expense');
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this expense entry?')) return;
+    const ok = await confirm({
+      title: 'Delete Expense',
+      message: 'Are you sure you want to delete this expense entry?',
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!ok) return;
+
     try {
       await axios.delete(`/api/expenses/${id}`);
       fetchExpenses();
+      toast.success('Expense deleted');
     } catch (err) {
-      alert('Error deleting expense');
+      toast.error('Error deleting expense');
     }
   };
 

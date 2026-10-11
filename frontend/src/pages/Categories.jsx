@@ -18,10 +18,12 @@ import {
 } from 'lucide-react';
 
 import { useLanguage } from '../context/LanguageContext';
+import { useToast } from '../context/ToastContext';
 import TransliterateInput from '../components/TransliterateInput';
 
 export default function Categories() {
   const { currentLang } = useLanguage();
+  const { toast, confirm } = useToast();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -104,21 +106,28 @@ export default function Categories() {
       setUnitToast(`Unit "${cleanName}" saved! Synced across Item Master and Stock Inward.`);
       setTimeout(() => setUnitToast(''), 3000);
     } catch (err) {
-      alert(err.response?.data?.message || 'Error creating unit');
+      toast.error(err.response?.data?.message || 'Error creating unit');
     } finally {
       setSavingUnit(false);
     }
   };
 
   const handleDeleteUnit = async (unitName) => {
-    if (!window.confirm(`Delete unit "${unitName}"?`)) return;
+    const ok = await confirm({
+      title: 'Delete Unit',
+      message: `Are you sure you want to delete unit "${unitName}"?`,
+      confirmText: 'Delete Unit',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
+
     try {
       await axios.delete(`/api/items/units/${encodeURIComponent(unitName)}`);
       setUnits(prev => prev.filter(u => (typeof u === 'string' ? u : u.name).toLowerCase() !== unitName.toLowerCase()));
-      setUnitToast(`Unit "${unitName}" removed.`);
-      setTimeout(() => setUnitToast(''), 3000);
+      toast.success(`Unit "${unitName}" removed.`);
     } catch (err) {
-      alert(err.response?.data?.message || 'Error deleting unit');
+      toast.error(err.response?.data?.message || 'Error deleting unit');
     }
   };
 
@@ -175,26 +184,38 @@ export default function Categories() {
       };
       if (editingCategory) {
         await axios.put(`/api/categories/${editingCategory._id}`, payload);
+        toast.success(`Category "${cleanName}" updated successfully`);
       } else {
         await axios.post('/api/categories', payload);
+        toast.success(`Category "${cleanName}" created successfully`);
       }
       setModalOpen(false);
       fetchCategories();
     } catch (err) {
       setErrorMsg(err.response?.data?.message || 'Error saving category');
+      toast.error(err.response?.data?.message || 'Error saving category');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (cat) => {
-    if (!window.confirm(`Are you sure you want to delete category "${cat.name}"?`)) return;
+    const ok = await confirm({
+      title: 'Delete Category',
+      message: `Are you sure you want to delete category "${cat.name}"?`,
+      description: 'Any existing products in this category will be safely reassigned to "General".',
+      confirmText: 'Delete Category',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
 
     try {
       await axios.delete(`/api/categories/${cat._id}`);
       fetchCategories();
+      toast.success(`Category "${cat.name}" deleted successfully`);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete category');
+      toast.error(err.response?.data?.message || 'Failed to delete category');
     }
   };
 

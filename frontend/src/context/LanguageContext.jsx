@@ -81,10 +81,9 @@ export function LanguageProvider({ children }) {
     }
 
     try {
-      const url = `https://inputtools.google.com/request?text=${encodeURIComponent(clean)}&itc=${langInfo.itc}&num=3&cp=0&cs=1&ie=utf-8&oe=utf-8&app=demopage`;
-      const res = await axios.get(url, { timeout: 3000 });
-      if (res.data && res.data[0] === 'SUCCESS' && res.data[1]?.[0]?.[1]?.[0]) {
-        const converted = res.data[1][0][1][0];
+      const res = await axios.get(`/api/transliterate?text=${encodeURIComponent(clean)}&lang=${targetLang}`);
+      if (res.data?.converted) {
+        const converted = res.data.converted;
         transliterationCache.current[cacheKey] = converted;
         return converted;
       }

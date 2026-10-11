@@ -14,6 +14,7 @@ import dayCloseRoutes from './routes/dayclose.js';
 import reportRoutes from './routes/reports.js';
 import settingRoutes from './routes/settings.js';
 import categoryRoutes from './routes/categories.js';
+import transliterateRoutes from './routes/transliterate.js';
 
 import { connectDB } from './config/db.js';
 
@@ -63,6 +64,7 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/dayclose', dayCloseRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/settings', settingRoutes);
+app.use('/api/transliterate', transliterateRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({

@@ -132,13 +132,6 @@ router.post('/', protect, async (req, res) => {
       isActive: true
     });
 
-    // Also sync to ShopSetting.categories array if missing
-    await models.ShopSetting.findOneAndUpdate(
-      {},
-      { $addToSet: { categories: cleanName } },
-      { upsert: true }
-    );
-
     await models.AuditLog.create({
       action: 'CATEGORY_CREATE',
       entity: 'Category',
@@ -191,14 +184,6 @@ router.put('/:id', protect, async (req, res) => {
         { category: prev.name },
         { $set: { category: cleanName } }
       );
-      // Update ShopSetting.categories array
-      await models.ShopSetting.findOneAndUpdate(
-        {},
-        { 
-          $pull: { categories: prev.name },
-          $addToSet: { categories: cleanName }
-        }
-      );
     }
 
     await models.AuditLog.create({
@@ -235,17 +220,9 @@ router.delete('/:id', protect, async (req, res) => {
         { category: category.name },
         { $set: { category: 'General' } }
       );
-      await models.ShopSetting.findOneAndUpdate(
-        {},
-        { $addToSet: { categories: 'General' } }
-      );
     }
 
     await models.Category.findByIdAndDelete(req.params.id);
-    await models.ShopSetting.findOneAndUpdate(
-      {},
-      { $pull: { categories: category.name } }
-    );
 
     await models.AuditLog.create({
       action: 'CATEGORY_DELETE',

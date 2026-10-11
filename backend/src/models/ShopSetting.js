@@ -24,10 +24,6 @@ const shopSettingSchema = new mongoose.Schema({
   allowNegativeStock: { type: Boolean, default: true },
   trackStock: { type: Boolean, default: true },
   lowStockAlert: { type: Boolean, default: true },
-  categories: {
-    type: [String],
-    default: []
-  },
   units: {
     type: [
       {

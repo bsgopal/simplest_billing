@@ -24,6 +24,7 @@ import {
   Layers,
   Globe
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function BarcodeStockModal({
   isOpen,
@@ -31,6 +32,7 @@ export default function BarcodeStockModal({
   onItemSaved,
   categories = []
 }) {
+  const { currentLang } = useLanguage();
   const [allItems, setAllItems] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
@@ -40,7 +42,6 @@ export default function BarcodeStockModal({
   // New Item Quick Creation inline form
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [showTranslations, setShowTranslations] = useState(false);
-  const [activeLang, setActiveLang] = useState('en');
   const [newItemForm, setNewItemForm] = useState({
     name: '',
     translations: {
@@ -69,7 +70,7 @@ export default function BarcodeStockModal({
     { code: 'ml', label: 'Malayalam', native: 'മലയാളം' }
   ];
 
-  const getItemDisplayName = (it, lang = activeLang) => {
+  const getItemDisplayName = (it, lang = currentLang) => {
     if (!it) return '';
     if (lang !== 'en' && it.translations && it.translations[lang]) {
       return it.translations[lang];
@@ -759,7 +760,7 @@ export default function BarcodeStockModal({
                             <div>
                               <div className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
                                 <span>{getItemDisplayName(it)}</span>
-                                {activeLang !== 'en' && it.translations?.[activeLang] && (
+                                {currentLang !== 'en' && it.translations?.[currentLang] && (
                                   <span className="text-[11px] font-normal text-slate-400">({it.name})</span>
                                 )}
                               </div>
@@ -792,7 +793,7 @@ export default function BarcodeStockModal({
                         </span>
                         <h4 className="text-sm font-black text-slate-900">
                           {getItemDisplayName(selectedItem)}
-                          {activeLang !== 'en' && selectedItem.translations?.[activeLang] && (
+                          {currentLang !== 'en' && selectedItem.translations?.[currentLang] && (
                             <span className="text-xs font-normal text-slate-500 ml-1.5">({selectedItem.name})</span>
                           )}
                         </h4>

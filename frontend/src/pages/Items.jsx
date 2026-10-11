@@ -327,7 +327,7 @@ export default function Items() {
                     <td className="px-4 py-3">
                       <div className="font-bold text-slate-900 flex items-center gap-1.5">
                         <span>{getItemDisplayName(it)}</span>
-                        {activeLang !== 'en' && it.translations?.[activeLang] && (
+                        {currentLang !== 'en' && it.translations?.[currentLang] && (
                           <span className="text-[11px] font-normal text-slate-400">({it.name})</span>
                         )}
                       </div>

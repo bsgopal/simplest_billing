@@ -27,15 +27,16 @@ import {
   Globe,
   Trash2
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function StockInward() {
+  const { currentLang } = useLanguage();
   const [allItems, setAllItems] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [searchItemQuery, setSearchItemQuery] = useState('');
   const [itemDropdownOpen, setItemDropdownOpen] = useState(false);
 
-  const [activeLang, setActiveLang] = useState('en'); // en, ta, hi, te, kn, ml
   const [categories, setCategories] = useState([]);
   const [units, setUnits] = useState([]);
 
@@ -73,7 +74,7 @@ export default function StockInward() {
     { code: 'ml', label: 'Malayalam', native: 'മലയാളം' }
   ];
 
-  const getItemDisplayName = (it, lang = activeLang) => {
+  const getItemDisplayName = (it, lang = currentLang) => {
     if (!it) return '';
     if (lang !== 'en' && it.translations && it.translations[lang]) {
       return it.translations[lang];
@@ -588,26 +589,6 @@ export default function StockInward() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Language Switcher Tabs */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <Globe className="w-3.5 h-3.5 text-slate-500 ml-1.5 mr-0.5" />
-            {languageTabs.map(tab => (
-              <button
-                key={tab.code}
-                type="button"
-                onClick={() => setActiveLang(tab.code)}
-                className={`px-2 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
-                  activeLang === tab.code
-                    ? 'bg-brand-500 text-slate-950 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                }`}
-                title={tab.label}
-              >
-                <span>{tab.native}</span>
-              </button>
-            ))}
-          </div>
-
           <button
             type="button"
             onClick={() => setSoundEnabled(!soundEnabled)}
@@ -957,7 +938,7 @@ export default function StockInward() {
                             <div>
                               <div className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
                                 <span>{getItemDisplayName(it)}</span>
-                                {activeLang !== 'en' && it.translations?.[activeLang] && (
+                                {currentLang !== 'en' && it.translations?.[currentLang] && (
                                   <span className="text-[11px] font-normal text-slate-400">({it.name})</span>
                                 )}
                               </div>
@@ -990,7 +971,7 @@ export default function StockInward() {
                         </span>
                         <h4 className="text-sm font-black text-slate-900">
                           {getItemDisplayName(selectedItem)}
-                          {activeLang !== 'en' && selectedItem.translations?.[activeLang] && (
+                          {currentLang !== 'en' && selectedItem.translations?.[currentLang] && (
                             <span className="text-xs font-normal text-slate-500 ml-1.5">({selectedItem.name})</span>
                           )}
                         </h4>

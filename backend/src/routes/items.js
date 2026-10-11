@@ -312,12 +312,18 @@ router.get('/categories-units', protect, async (req, res) => {
     const categoryDocs = await models.Category.find({ isActive: true }).sort({ displayOrder: 1, name: 1 });
     const dedicatedCategories = categoryDocs.map(c => c.name);
 
-    // Dynamic categories unified from Category collection, items, and settings
-    const allCategories = Array.from(new Set([
-      ...dedicatedCategories,
-      ...(itemCategories || []),
-      ...(settings?.categories || [])
-    ])).filter(Boolean);
+    // Dynamic categories strictly from Category collection and active items
+    let allCategories = [];
+    if (categoryDocs.length > 0) {
+      allCategories = Array.from(new Set([
+        ...dedicatedCategories,
+        ...(itemCategories || [])
+      ])).filter(Boolean);
+    } else if (itemCategories && itemCategories.length > 0) {
+      allCategories = itemCategories.filter(Boolean);
+    } else {
+      allCategories = (settings?.categories || []).filter(Boolean);
+    }
 
     // Dynamic units unified from settings and all items in DB (not hardcoded/enum)
     const itemUnits = await models.Item.distinct('unit', { isActive: true });

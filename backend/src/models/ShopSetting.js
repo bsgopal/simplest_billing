@@ -26,7 +26,7 @@ const shopSettingSchema = new mongoose.Schema({
   lowStockAlert: { type: Boolean, default: true },
   categories: {
     type: [String],
-    default: ['Vegetables', 'Fruits', 'Grocery', 'Snacks', 'Beverages', 'Dairy', 'General']
+    default: []
   },
   units: {
     type: [

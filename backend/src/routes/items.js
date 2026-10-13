@@ -354,6 +354,79 @@ router.post('/bulk-barcode-inward', protect, async (req, res) => {
   }
 });
 
+// Daily Mandi / Bulk Rate Sheet: update purchase cost, selling rate, and inward stock for multiple items in one step
+router.post('/daily-rate-sheet', protect, async (req, res) => {
+  try {
+    const { updates } = req.body;
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({ message: 'No item updates provided' });
+    }
+
+    const models = getTenantDb(req.customerCode);
+    const updatedItems = [];
+    const auditDetails = [];
+
+    for (const entry of updates) {
+      const { itemId, addStock, costPrice, sellingPrice } = entry;
+      if (!itemId) continue;
+
+      const item = await models.Item.findById(itemId);
+      if (!item) continue;
+
+      const updateOps = {};
+      const stockIncrement = parseFloat(addStock) || 0;
+
+      if (stockIncrement > 0) {
+        updateOps.$inc = { currentStock: stockIncrement };
+      }
+
+      const setOps = {};
+      if (costPrice !== undefined && costPrice !== null && costPrice !== '') {
+        setOps.purchasePrice = parseFloat(costPrice) || 0;
+      }
+      if (sellingPrice !== undefined && sellingPrice !== null && sellingPrice !== '') {
+        setOps.sellingPrice = parseFloat(sellingPrice) || 0;
+      }
+
+      if (Object.keys(setOps).length > 0) {
+        updateOps.$set = setOps;
+      }
+
+      // If nothing to change, skip
+      if (Object.keys(updateOps).length === 0) continue;
+
+      const updated = await models.Item.findByIdAndUpdate(itemId, updateOps, { new: true });
+      updatedItems.push(updated);
+
+      auditDetails.push({
+        itemName: item.name,
+        addedStock: stockIncrement,
+        newStock: updated.currentStock,
+        purchasePrice: updated.purchasePrice,
+        sellingPrice: updated.sellingPrice
+      });
+    }
+
+    if (auditDetails.length > 0) {
+      await models.AuditLog.create({
+        action: 'DAILY_RATE_SHEET_UPDATE',
+        entity: 'Item',
+        details: { count: updatedItems.length, items: auditDetails },
+        performedBy: req.user.name
+      });
+    }
+
+    res.json({
+      message: `Successfully updated ${updatedItems.length} items in daily rate sheet!`,
+      count: updatedItems.length,
+      items: updatedItems
+    });
+  } catch (error) {
+    console.error('Error updating daily rate sheet:', error);
+    res.status(500).json({ message: 'Error updating daily rate sheet', error: error.message });
+  }
+});
+
 
 router.get('/categories-units', protect, async (req, res) => {
   try {

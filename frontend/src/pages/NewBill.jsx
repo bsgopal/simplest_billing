@@ -412,9 +412,38 @@ export default function NewBill() {
               </select>
             </div>
 
+            {/* Category Touch Pills (Fast Touch Selection for Tablets & POS) */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('All')}
+                className={`shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-black transition ${
+                  selectedCategory === 'All'
+                    ? 'bg-slate-900 text-white shadow-2xs'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                }`}
+              >
+                All
+              </button>
+              {categories.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setSelectedCategory(c)}
+                  className={`shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-black transition ${
+                    selectedCategory === c
+                      ? 'bg-brand-500 text-slate-950 shadow-2xs'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+
             {/* Quick Item Buttons Strip (One-tap fast billing) */}
             {quickItems.length > 0 && !searchQuery && (
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar border-t border-slate-100 pt-1.5">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">
                   Quick:
                 </span>
@@ -422,7 +451,7 @@ export default function NewBill() {
                   <button
                     key={qItem._id}
                     onClick={() => handleItemClick(qItem)}
-                    className="shrink-0 px-2.5 py-1.5 bg-brand-50 hover:bg-brand-100 active:scale-95 border border-brand-200 rounded-lg text-xs font-black text-slate-900 transition flex items-center gap-1 shadow-2xs"
+                    className="shrink-0 px-2.5 py-1 bg-brand-50 hover:bg-brand-100 active:scale-95 border border-brand-200 rounded-lg text-xs font-black text-slate-900 transition flex items-center gap-1 shadow-2xs"
                   >
                     <span>{getItemDisplayName(qItem)}</span>
                     <span className="text-brand-700 font-bold">₹{qItem.sellingPrice}</span>
@@ -432,19 +461,9 @@ export default function NewBill() {
             )}
           </div>
 
-          {/* Item Catalog Grid - Only displays when searching by name or barcode */}
+          {/* Item Catalog Grid */}
           <div className="flex-1 overflow-y-auto p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-2.5 content-start">
-            {!searchQuery.trim() ? (
-              <div className="col-span-full py-16 flex flex-col items-center justify-center text-center text-slate-400">
-                <div className="w-16 h-16 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-600 mb-3 shadow-2xs">
-                  <Barcode className="w-8 h-8" />
-                </div>
-                <h3 className="font-extrabold text-slate-800 text-sm">Ready to Scan or Search</h3>
-                <p className="text-xs text-slate-400 mt-1 max-w-xs">
-                  Scan a barcode or type item name above to add products to the bill
-                </p>
-              </div>
-            ) : filteredCatalog.length === 0 ? (
+            {filteredCatalog.length === 0 ? (
               <div className="col-span-full py-12 text-center text-slate-400">
                 <Tag className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                 <p className="text-xs font-bold text-slate-700">No matching items found</p>

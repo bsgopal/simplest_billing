@@ -26,7 +26,11 @@ import {
   Layers,
   Globe,
   Trash2,
-  Scale
+  Scale,
+  ClipboardList,
+  ArrowUpDown,
+  Filter,
+  Save
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
@@ -93,6 +97,14 @@ export default function StockInward() {
   const [directQty, setDirectQty] = useState('');
   const [inwardTab, setInwardTab] = useState('direct'); // 'direct' (weight / loose / bulk) or 'scanner' (camera / barcode)
   const [submitting, setSubmitting] = useState(false);
+
+  // Top-level View Mode: 'sheet' (Daily Mandi / Bulk Rate Sheet) or 'individual' (Existing Single Inward & Scanner)
+  const [mainMode, setMainMode] = useState('sheet');
+  const [sheetCategory, setSheetCategory] = useState('All');
+  const [sheetSearch, setSheetSearch] = useState('');
+  // Map of itemId -> { addStock: '', costPrice: '', sellingPrice: '' }
+  const [rateSheetRows, setRateSheetRows] = useState({});
+  const [savingSheet, setSavingSheet] = useState(false);
   
   // Continuous Camera & Feedback States
   const [cameraActive, setCameraActive] = useState(true);
@@ -186,6 +198,64 @@ export default function StockInward() {
       toast.error(err.response?.data?.message || 'Error updating stock');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Daily Rate Sheet: Update single field in local row state
+  const handleSheetRowChange = (itemId, field, value) => {
+    setRateSheetRows(prev => ({
+      ...prev,
+      [itemId]: {
+        ...(prev[itemId] || {}),
+        [field]: value
+      }
+    }));
+  };
+
+  // Daily Rate Sheet: Commit all edited rows to the backend
+  const handleSaveRateSheet = async () => {
+    const itemIds = Object.keys(rateSheetRows);
+    const updates = [];
+
+    for (const id of itemIds) {
+      const row = rateSheetRows[id];
+      if (!row) continue;
+      const original = allItems.find(i => i._id === id);
+      if (!original) continue;
+
+      const addStock = parseFloat(row.addStock) || 0;
+      const hasStock = addStock > 0;
+      const hasCostChange = row.costPrice !== undefined && row.costPrice !== '' && parseFloat(row.costPrice) !== original.purchasePrice;
+      const hasSellChange = row.sellingPrice !== undefined && row.sellingPrice !== '' && parseFloat(row.sellingPrice) !== original.sellingPrice;
+
+      if (hasStock || hasCostChange || hasSellChange) {
+        updates.push({
+          itemId: id,
+          addStock: hasStock ? addStock : 0,
+          costPrice: row.costPrice !== undefined && row.costPrice !== '' ? parseFloat(row.costPrice) : original.purchasePrice,
+          sellingPrice: row.sellingPrice !== undefined && row.sellingPrice !== '' ? parseFloat(row.sellingPrice) : original.sellingPrice
+        });
+      }
+    }
+
+    if (updates.length === 0) {
+      toast.info('No changes detected in the rate sheet to save.');
+      return;
+    }
+
+    setSavingSheet(true);
+    try {
+      const res = await axios.post('/api/items/daily-rate-sheet', { updates });
+      playSuccessSound();
+      toast.success(`Saved! Updated ${res.data.count || updates.length} items with new rates & stock.`);
+      // Clear edited rows and refresh live inventory
+      setRateSheetRows({});
+      await loadAllItems();
+    } catch (err) {
+      console.error('Error saving rate sheet:', err);
+      toast.error(err.response?.data?.message || 'Failed to save daily rate sheet');
+    } finally {
+      setSavingSheet(false);
     }
   };
 
@@ -678,18 +748,46 @@ export default function StockInward() {
         <div>
           <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <Barcode className="w-5 h-5 text-brand-600" />
-            Bulk Stock Inward &amp; Barcode Management
+            Stock Inward &amp; Rate Management
             <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-100 text-brand-900 border border-brand-300">
               <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
-              INSTANT AUTO-ADD
+              MULTI-MODE INWARD
             </span>
           </h2>
           <p className="text-xs text-slate-500 font-medium">
-            Scan bulk packets directly &bull; 1 stock per unique barcode &bull; Duplicates automatically blocked
+            Daily Mandi Rate Sheet &bull; Single-item loose inward &bull; Continuous barcode scanner
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Top-Level Mode Selector */}
+          <div className="bg-slate-100 p-1 rounded-xl border border-slate-200 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setMainMode('sheet')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition ${
+                mainMode === 'sheet'
+                  ? 'bg-brand-500 text-slate-950 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              <ClipboardList className="w-4 h-4" />
+              <span>📋 Daily Rate Sheet</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMainMode('individual')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition ${
+                mainMode === 'individual'
+                  ? 'bg-brand-500 text-slate-950 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              <Scale className="w-4 h-4" />
+              <span>⚖️ Single Product &amp; Barcode</span>
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={() => setSoundEnabled(!soundEnabled)}
@@ -703,8 +801,197 @@ export default function StockInward() {
         </div>
       </div>
 
-      {/* Main Grid: Left Item Selector, Right Continuous Camera & Inward Card */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      {/* VIEW 1: DAILY MANDI / BULK RATE SHEET (Fast Table for Vegetables, Fruits & All Items) */}
+      {mainMode === 'sheet' && (
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5 text-brand-600" />
+                  Daily Mandi / Bulk Rate &amp; Inward Sheet
+                </h3>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  1-Click Save
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Quickly enter today's purchased kg, wholesale purchase cost, and selling rates across all products in one screen.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleSaveRateSheet}
+                disabled={savingSheet || Object.keys(rateSheetRows).length === 0}
+                className="px-5 py-2.5 bg-brand-500 hover:bg-brand-400 text-slate-950 font-black rounded-xl text-xs sm:text-sm transition shadow-sm flex items-center gap-2 active:scale-95 disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                <span>{savingSheet ? 'Saving Changes...' : `Save Today's Rates & Stock (${Object.keys(rateSheetRows).length})`}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Filters: Category Pills + Search Box */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar flex-1">
+              <button
+                type="button"
+                onClick={() => setSheetCategory('All')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition ${
+                  sheetCategory === 'All'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                All Categories ({allItems.length})
+              </button>
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSheetCategory(cat)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition ${
+                    sheetCategory === cat
+                      ? 'bg-brand-500 text-slate-950 shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {cat} ({allItems.filter(i => i.category === cat).length})
+                </button>
+              ))}
+            </div>
+
+            <div className="relative sm:w-64 shrink-0">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={sheetSearch}
+                onChange={(e) => setSheetSearch(e.target.value)}
+                placeholder="Filter items..."
+                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-brand-500"
+              />
+            </div>
+          </div>
+
+          {/* Rate Sheet Table */}
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200 font-black text-slate-700 uppercase tracking-wider text-[11px]">
+                <tr>
+                  <th className="py-2.5 px-3">Item Name</th>
+                  <th className="py-2.5 px-2">Unit</th>
+                  <th className="py-2.5 px-3 text-right">Current Stock</th>
+                  <th className="py-2.5 px-3 w-32 text-center bg-brand-50/50">+ Add Stock</th>
+                  <th className="py-2.5 px-3 w-32 text-center">Cost Price (₹)</th>
+                  <th className="py-2.5 px-3 w-32 text-center bg-brand-50/70">Selling Rate (₹)</th>
+                  <th className="py-2.5 px-3 text-right">New Stock</th>
+                  <th className="py-2.5 px-3 text-right">Today's Inward Cost</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {allItems
+                  .filter(i => {
+                    const matchesCat = sheetCategory === 'All' || i.category === sheetCategory;
+                    const q = sheetSearch.toLowerCase().trim();
+                    if (!q) return matchesCat;
+                    const matchName = i.name.toLowerCase().includes(q);
+                    const matchTrans = i.translations && Object.values(i.translations).some(
+                      t => t && t.toLowerCase().includes(q)
+                    );
+                    return matchesCat && (matchName || matchTrans || (i.code && i.code.toLowerCase().includes(q)));
+                  })
+                  .map((item) => {
+                    const rowData = rateSheetRows[item._id] || {};
+                    const addStockVal = rowData.addStock !== undefined ? rowData.addStock : '';
+                    const costVal = rowData.costPrice !== undefined ? rowData.costPrice : (item.purchasePrice !== undefined ? String(item.purchasePrice) : '');
+                    const sellVal = rowData.sellingPrice !== undefined ? rowData.sellingPrice : (item.sellingPrice !== undefined ? String(item.sellingPrice) : '');
+
+                    const addQtyNum = parseFloat(addStockVal) || 0;
+                    const costNum = parseFloat(costVal) || 0;
+                    const newTotalStock = (parseFloat(item.currentStock) || 0) + addQtyNum;
+                    const totalCostForAdded = addQtyNum * costNum;
+                    const isEdited = rowData.addStock || (rowData.costPrice !== undefined && rowData.costPrice !== '') || (rowData.sellingPrice !== undefined && rowData.sellingPrice !== '');
+
+                    return (
+                      <tr key={item._id} className={`transition ${isEdited ? 'bg-amber-50/40 hover:bg-amber-50/70' : 'hover:bg-slate-50'}`}>
+                        <td className="py-2 px-3">
+                          <div className="font-extrabold text-slate-900 text-xs">
+                            {getItemDisplayName(item)}
+                          </div>
+                          {currentLang !== 'en' && item.translations?.[currentLang] && (
+                            <div className="text-[10px] text-slate-400 font-medium">{item.name}</div>
+                          )}
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            {item.category} {item.code ? `• #${item.code}` : ''}
+                          </div>
+                        </td>
+                        <td className="py-2 px-2 font-mono font-bold text-slate-600">
+                          {item.unit}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-slate-700">
+                          {item.currentStock} {item.unit}
+                        </td>
+                        <td className="py-2 px-3 bg-brand-50/30">
+                          <input
+                            type="number"
+                            step={item.allowDecimals || ['kg', 'gram', 'litre', 'ml'].includes(item.unit?.toLowerCase()) ? '0.001' : '1'}
+                            min="0"
+                            placeholder="0"
+                            value={addStockVal}
+                            onChange={(e) => handleSheetRowChange(item._id, 'addStock', e.target.value)}
+                            className="w-full px-2 py-1.5 bg-white border border-brand-300 rounded-lg text-slate-900 font-mono font-black text-center text-xs focus:outline-none focus:border-brand-600 shadow-2xs"
+                          />
+                        </td>
+                        <td className="py-2 px-3">
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">₹</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="0.00"
+                              value={costVal}
+                              onChange={(e) => handleSheetRowChange(item._id, 'costPrice', e.target.value)}
+                              className="w-full pl-5 pr-2 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono text-center text-xs focus:outline-none focus:border-brand-500 shadow-2xs"
+                            />
+                          </div>
+                        </td>
+                        <td className="py-2 px-3 bg-brand-50/50">
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-brand-700">₹</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="0.00"
+                              value={sellVal}
+                              onChange={(e) => handleSheetRowChange(item._id, 'sellingPrice', e.target.value)}
+                              className="w-full pl-5 pr-2 py-1.5 bg-white border-2 border-brand-500 rounded-lg text-brand-950 font-mono font-black text-center text-xs focus:outline-none focus:border-brand-600 shadow-2xs"
+                            />
+                          </div>
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-black text-slate-800">
+                          {newTotalStock.toFixed(item.allowDecimals ? 2 : 0)} {item.unit}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
+                          {totalCostForAdded > 0 ? `₹${totalCostForAdded.toFixed(2)}` : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW 2: INDIVIDUAL ITEM INWARD & CONTINUOUS BARCODE SCANNER (Preserved Original Logic) */}
+      {mainMode === 'individual' && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
         
         {/* LEFT COLUMN: Item Selector & Quick Creator (lg:col-span-5) */}
         <div className="lg:col-span-5 space-y-4">
@@ -1492,6 +1779,8 @@ export default function StockInward() {
           </div>
         )}
       </div>
+        </>
+      )}
 
     </div>
   );

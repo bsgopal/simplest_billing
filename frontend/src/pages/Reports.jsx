@@ -20,11 +20,16 @@ import {
   Clock,
   Layers,
   Percent,
-  ChevronRight
+  ChevronRight,
+  Download
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { useAuth } from '../context/AuthContext';
 import ThermalReceiptModal from '../components/ThermalReceiptModal';
 
 export default function Reports() {
+  const { shop } = useAuth();
   const [activeTab, setActiveTab] = useState('BILLING'); // BILLING, STOCK, CUSTOMERS, OVERVIEW, GST
   const [dateRange, setDateRange] = useState('THIS_MONTH');
   const [startDate, setStartDate] = useState(() => {
@@ -136,6 +141,386 @@ export default function Reports() {
     );
   });
 
+  const addReportHeader = (doc, title, subtitle) => {
+    const shopName = shop?.shopName || 'Simple Retail Store';
+    const shopPhone = shop?.phone ? `Phone: ${shop.phone}` : '';
+    const shopAddress = shop?.address || '';
+
+    // Brand Header Bar
+    doc.setFillColor(15, 23, 42); // slate-900
+    doc.rect(0, 0, 210, 22, 'F');
+
+    // Shop Name & Details
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text(shopName, 14, 10);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(203, 213, 225);
+    const subText = [shopAddress, shopPhone].filter(Boolean).join(' • ');
+    if (subText) {
+      doc.text(subText, 14, 16);
+    }
+
+    // Report Title & Date
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(title, 14, 31);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text(subtitle, 14, 36);
+
+    const genDate = `Generated: ${new Date().toLocaleString('en-IN')}`;
+    doc.text(genDate, 210 - 14 - doc.getTextWidth(genDate), 36);
+
+    // Divider line
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.5);
+    doc.line(14, 39, 196, 39);
+  };
+
+  const addReportFooter = (doc) => {
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.setDrawColor(226, 232, 240);
+      doc.line(14, 285, 196, 285);
+      doc.text('Simple Billing System • Confidential Business Audit Report', 14, 290);
+      const pageStr = `Page ${i} of ${pageCount}`;
+      doc.text(pageStr, 210 - 14 - doc.getTextWidth(pageStr), 290);
+    }
+  };
+
+  const exportBillingPdf = () => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const dateStr = `${startDate} to ${endDate}`;
+
+    addReportHeader(doc, 'Billing History & Sales Report', `Period: ${dateStr}`);
+
+    // Summary Cards Box
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(14, 42, 182, 17, 2, 2, 'FD');
+
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL INVOICES', 18, 48);
+    doc.text('TOTAL REVENUE', 62, 48);
+    doc.text('CASH SALES', 108, 48);
+    doc.text('UPI SALES', 148, 48);
+
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${summary.totalBills || filteredBills.length}`, 18, 54);
+    doc.setTextColor(22, 101, 52);
+    doc.text(`Rs. ${(summary.totalSales || 0).toFixed(2)}`, 62, 54);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`Rs. ${(summary.cashSales || 0).toFixed(2)}`, 108, 54);
+    doc.text(`Rs. ${(summary.upiSales || 0).toFixed(2)}`, 148, 54);
+
+    const rows = filteredBills.map((b, idx) => [
+      idx + 1,
+      b.billNo || '-',
+      new Date(b.date).toLocaleDateString('en-IN') + ' ' + new Date(b.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+      b.customer?.name || 'Walk-in',
+      b.items?.length || 0,
+      b.payments?.credit > 0 ? 'Credit' : b.payments?.upi > 0 ? 'UPI' : b.payments?.card > 0 ? 'Card' : 'Cash',
+      `Rs. ${(b.grandTotal || 0).toFixed(2)}`
+    ]);
+
+    autoTable(doc, {
+      startY: 63,
+      head: [['#', 'Bill No', 'Date & Time', 'Customer', 'Items', 'Mode', 'Grand Total']],
+      body: rows,
+      theme: 'striped',
+      headStyles: {
+        fillColor: [15, 23, 42],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 7.5
+      },
+      bodyStyles: {
+        fontSize: 7.5,
+        textColor: [30, 41, 59]
+      },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 26, fontStyle: 'bold' },
+        2: { cellWidth: 38 },
+        3: { cellWidth: 42 },
+        4: { cellWidth: 16, halign: 'center' },
+        5: { cellWidth: 20, halign: 'center' },
+        6: { cellWidth: 30, halign: 'right', fontStyle: 'bold', textColor: [22, 101, 52] }
+      },
+      margin: { left: 14, right: 14, bottom: 15 }
+    });
+
+    addReportFooter(doc);
+    doc.save(`Billing_Report_${startDate}_to_${endDate}.pdf`);
+  };
+
+  const exportStockPdf = () => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+
+    addReportHeader(doc, 'Stock Valuation & Inventory Audit Report', `Filter: ${stockFilter}`);
+
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(14, 42, 182, 17, 2, 2, 'FD');
+
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL PRODUCTS', 18, 48);
+    doc.text('RETAIL VALUATION', 60, 48);
+    doc.text('COST VALUATION', 108, 48);
+    doc.text('LOW / OUT OF STOCK', 150, 48);
+
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${stockSummary.totalItems || filteredStockItems.length} Products`, 18, 54);
+    doc.setTextColor(29, 78, 216);
+    doc.text(`Rs. ${(stockSummary.totalRetailValuation || 0).toFixed(2)}`, 60, 54);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`Rs. ${(stockSummary.totalCostValuation || 0).toFixed(2)}`, 108, 54);
+    doc.setTextColor(185, 28, 28);
+    doc.text(`${stockSummary.lowStockCount || 0} Low / ${stockSummary.outOfStockCount || 0} Out`, 150, 54);
+
+    const rows = filteredStockItems.map((it, idx) => {
+      const isOut = it.currentStock <= 0;
+      const isLow = it.currentStock <= (it.lowStockLevel || 5);
+      const valuation = Number(it.currentStock || 0) * Number(it.sellingPrice || 0);
+      const status = isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'Healthy';
+
+      return [
+        idx + 1,
+        it.name + (it.code ? ` (#${it.code})` : ''),
+        it.category || 'General',
+        `${it.currentStock} ${it.unit}`,
+        `Rs. ${(it.purchasePrice || 0).toFixed(2)}`,
+        `Rs. ${(it.sellingPrice || 0).toFixed(2)}`,
+        `Rs. ${valuation.toFixed(2)}`,
+        status
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 63,
+      head: [['#', 'Product Name', 'Category', 'In Stock', 'Cost Rate', 'Selling Rate', 'Valuation', 'Status']],
+      body: rows,
+      theme: 'striped',
+      headStyles: {
+        fillColor: [15, 23, 42],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 7.5
+      },
+      bodyStyles: {
+        fontSize: 7.5,
+        textColor: [30, 41, 59]
+      },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 44, fontStyle: 'bold' },
+        2: { cellWidth: 26 },
+        3: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
+        4: { cellWidth: 20, halign: 'right' },
+        5: { cellWidth: 22, halign: 'right' },
+        6: { cellWidth: 24, halign: 'right', fontStyle: 'bold', textColor: [22, 101, 52] },
+        7: { cellWidth: 16, halign: 'center' }
+      },
+      margin: { left: 14, right: 14, bottom: 15 }
+    });
+
+    addReportFooter(doc);
+    doc.save(`Stock_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const exportCustomerPdf = () => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+
+    addReportHeader(doc, 'Customer Accounts & Outstanding Dues Report', 'Ledger balances directory');
+
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(14, 42, 182, 17, 2, 2, 'FD');
+
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL CUSTOMERS', 18, 48);
+    doc.text('TOTAL BALANCE DUE', 70, 48);
+    doc.text('CUSTOMERS WITH PENDING DUES', 130, 48);
+
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${customerSummary.totalCustomers || filteredCustomers.length} Accounts`, 18, 54);
+    doc.setTextColor(180, 83, 9);
+    doc.text(`Rs. ${(customerSummary.totalDue || 0).toFixed(2)}`, 70, 54);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${customerSummary.customersWithDue || 0} Accounts`, 130, 54);
+
+    const rows = filteredCustomers.map((c, idx) => [
+      idx + 1,
+      c.name,
+      c.phone || '-',
+      `Rs. ${(c.creditLimit || 0).toFixed(2)}`,
+      `Rs. ${(c.balanceDue || 0).toFixed(2)}`,
+      Number(c.balanceDue || 0) > 0 ? 'Pending Due' : 'All Clear'
+    ]);
+
+    autoTable(doc, {
+      startY: 63,
+      head: [['#', 'Customer Name', 'Phone Number', 'Credit Limit', 'Balance Due', 'Status']],
+      body: rows,
+      theme: 'striped',
+      headStyles: {
+        fillColor: [15, 23, 42],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 7.5
+      },
+      bodyStyles: {
+        fontSize: 7.5,
+        textColor: [30, 41, 59]
+      },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 54, fontStyle: 'bold' },
+        2: { cellWidth: 34 },
+        3: { cellWidth: 28, halign: 'right' },
+        4: { cellWidth: 32, halign: 'right', fontStyle: 'bold', textColor: [180, 83, 9] },
+        5: { cellWidth: 24, halign: 'center' }
+      },
+      margin: { left: 14, right: 14, bottom: 15 }
+    });
+
+    addReportFooter(doc);
+    doc.save(`Customer_Accounts_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const exportFinancialOverviewPdf = () => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const dateStr = `${startDate} to ${endDate}`;
+
+    addReportHeader(doc, 'Executive Sales & GST Financial Report', `Period: ${dateStr}`);
+
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(14, 42, 182, 22, 2, 2, 'FD');
+
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL SALES', 18, 48);
+    doc.text('ESTIMATED PROFIT', 62, 48);
+    doc.text('TOTAL EXPENSES', 110, 48);
+    doc.text('TAX COLLECTED', 152, 48);
+
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`Rs. ${(summary.totalSales || 0).toFixed(2)}`, 18, 55);
+    doc.setTextColor(22, 101, 52);
+    doc.text(`Rs. ${(summary.estimatedProfit || 0).toFixed(2)}`, 62, 55);
+    doc.setTextColor(225, 29, 72);
+    doc.text(`Rs. ${(summary.totalExpenses || 0).toFixed(2)}`, 110, 55);
+    doc.setTextColor(37, 99, 235);
+    doc.text(`Rs. ${(summary.totalTax || 0).toFixed(2)}`, 152, 55);
+
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Cash: Rs. ${(summary.cashSales || 0).toFixed(2)} • UPI: Rs. ${(summary.upiSales || 0).toFixed(2)} • Card: Rs. ${(summary.cardSales || 0).toFixed(2)} • Credit: Rs. ${(summary.creditSales || 0).toFixed(2)}`, 18, 61);
+
+    let currentY = 69;
+
+    if (summaryData.topItems && summaryData.topItems.length > 0) {
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Top Selling Products', 14, currentY);
+
+      const itemRows = summaryData.topItems.map((it, idx) => [
+        idx + 1,
+        it.name,
+        `${it.quantity} ${it.unit}`,
+        `Rs. ${(it.totalAmount || 0).toFixed(2)}`
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        head: [['#', 'Product Name', 'Quantity Sold', 'Total Revenue']],
+        body: itemRows,
+        theme: 'striped',
+        headStyles: { fillColor: [15, 23, 42], fontSize: 7.5 },
+        bodyStyles: { fontSize: 7.5 },
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 80, fontStyle: 'bold' },
+          2: { cellWidth: 42, halign: 'center' },
+          3: { cellWidth: 50, halign: 'right', fontStyle: 'bold', textColor: [22, 101, 52] }
+        },
+        margin: { left: 14, right: 14 }
+      });
+
+      currentY = doc.lastAutoTable.finalY + 8;
+    }
+
+    if (summaryData.taxBreakdown && summaryData.taxBreakdown.length > 0) {
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text('GST Tax Slab Summary (For CA / Filing)', 14, currentY);
+
+      const taxRows = summaryData.taxBreakdown.map((row) => [
+        row.slab,
+        `Rs. ${(row.taxable || 0).toFixed(2)}`,
+        `Rs. ${(row.cgst || 0).toFixed(2)}`,
+        `Rs. ${(row.sgst || 0).toFixed(2)}`,
+        `Rs. ${(row.total || 0).toFixed(2)}`
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        head: [['GST Slab', 'Taxable Amount', 'CGST', 'SGST', 'Total GST Tax']],
+        body: taxRows,
+        theme: 'striped',
+        headStyles: { fillColor: [30, 41, 59], fontSize: 7.5 },
+        bodyStyles: { fontSize: 7.5 },
+        columnStyles: {
+          0: { cellWidth: 26, fontStyle: 'bold' },
+          1: { cellWidth: 40, halign: 'right' },
+          2: { cellWidth: 38, halign: 'right' },
+          3: { cellWidth: 38, halign: 'right' },
+          4: { cellWidth: 40, halign: 'right', fontStyle: 'bold', textColor: [29, 78, 216] }
+        },
+        margin: { left: 14, right: 14 }
+      });
+    }
+
+    addReportFooter(doc);
+    doc.save(`Sales_Financial_Report_${startDate}_to_${endDate}.pdf`);
+  };
+
+  const handleExportCurrentTabPdf = () => {
+    if (activeTab === 'BILLING') {
+      exportBillingPdf();
+    } else if (activeTab === 'STOCK') {
+      exportStockPdf();
+    } else if (activeTab === 'CUSTOMERS') {
+      exportCustomerPdf();
+    } else {
+      exportFinancialOverviewPdf();
+    }
+  };
+
   return (
     <div className="space-y-4 pb-12 print:p-0">
       {/* Top Header */}
@@ -151,6 +536,15 @@ export default function Reports() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCurrentTabPdf}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-brand-500 hover:bg-brand-600 text-slate-950 font-black rounded-xl text-xs transition shadow-xs active:scale-98"
+            title="Download active report as PDF file"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export PDF</span>
+          </button>
+
           <button
             onClick={() => window.print()}
             className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition border border-slate-300 active:scale-98"

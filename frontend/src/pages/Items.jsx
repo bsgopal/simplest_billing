@@ -14,12 +14,14 @@ import {
   Barcode,
   Layers,
   Globe,
-  Trash2
+  Trash2,
+  Printer
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import TransliterateInput from '../components/TransliterateInput';
 import BarcodeStockModal from '../components/BarcodeStockModal';
+import BarcodeCheatSheetModal from '../components/BarcodeCheatSheetModal';
 
 export default function Items() {
   const { currentLang, transliterateWord } = useLanguage();
@@ -85,6 +87,7 @@ export default function Items() {
 
   // Barcode Fast Stock Entry modal
   const [barcodeStockModalOpen, setBarcodeStockModalOpen] = useState(false);
+  const [cheatSheetModalOpen, setCheatSheetModalOpen] = useState(false);
 
   const fetchItems = async () => {
     setLoading(true);
@@ -297,6 +300,16 @@ export default function Items() {
             <Barcode className="w-4 h-4 text-brand-600" />
             <span>Stock Inward</span>
           </Link>
+
+          <button
+            type="button"
+            onClick={() => setCheatSheetModalOpen(true)}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 font-extrabold rounded-xl text-xs transition shadow-2xs active:scale-98"
+            title="Generate & print laminated barcode cheat sheet for Dal, Spices & loose items"
+          >
+            <Printer className="w-4 h-4 text-amber-700" />
+            <span>Barcode Cheat Sheet</span>
+          </button>
 
           <Link
             to="/categories"
@@ -738,6 +751,14 @@ export default function Items() {
         isOpen={barcodeStockModalOpen}
         onClose={() => setBarcodeStockModalOpen(false)}
         onItemSaved={fetchItems}
+        categories={categories}
+      />
+
+      {/* Barcode Cheat Sheet Generator Modal */}
+      <BarcodeCheatSheetModal
+        isOpen={cheatSheetModalOpen}
+        onClose={() => setCheatSheetModalOpen(false)}
+        items={items}
         categories={categories}
       />
     </div>

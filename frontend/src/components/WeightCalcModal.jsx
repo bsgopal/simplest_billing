@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Scale, IndianRupee, X } from 'lucide-react';
 
 export default function WeightCalcModal({ item, onAdd, onClose }) {
@@ -28,7 +28,7 @@ export default function WeightCalcModal({ item, onAdd, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div>
@@ -91,16 +91,20 @@ export default function WeightCalcModal({ item, onAdd, onClose }) {
                 Calculated Price: <span className="text-brand-700 font-black">₹{amountValue.toFixed(2)}</span>
               </p>
 
-              {/* Quick Weight Chips */}
-              <div className="grid grid-cols-4 gap-1.5 mt-3">
-                {[0.25, 0.5, 1, 2].map((w) => (
+              {/* Quick Weight Chips (Common for loose Dal, Spices, Grains) */}
+              <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5 mt-3">
+                {[0.05, 0.1, 0.25, 0.5, 1, 2, 5].map((w) => (
                   <button
                     key={w}
                     type="button"
                     onClick={() => setWeightValue(w)}
-                    className="py-1.5 bg-slate-100 hover:bg-brand-100 text-slate-800 hover:text-brand-900 rounded-lg text-xs font-bold transition"
+                    className={`py-1.5 rounded-lg text-xs font-black transition border ${
+                      weightValue === w
+                        ? 'bg-brand-500 text-slate-950 border-brand-600 shadow-2xs'
+                        : 'bg-slate-100 hover:bg-brand-50 text-slate-800 border-slate-200'
+                    }`}
                   >
-                    {w < 1 ? `${w * 1000}g` : `${w} kg`}
+                    {w < 1 ? `${Math.round(w * 1000)}g` : `${w} kg`}
                   </button>
                 ))}
               </div>

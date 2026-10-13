@@ -142,6 +142,42 @@ export default function StockInward() {
     loadAllItems();
   }, []);
 
+  // Global USB Barcode Gun Listener (Works from anywhere on the screen without clicking any input)
+  const inwardBarcodeBufferRef = useRef('');
+  const inwardLastKeyTimeRef = useRef(0);
+
+  useEffect(() => {
+    const handleGlobalBarcodeScan = (e) => {
+      // If user is actively typing in a normal text input (like searching or editing rates), ignore
+      const activeEl = document.activeElement;
+      const isInputActive = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl?.tagName);
+
+      const now = Date.now();
+      const isFastTyping = (now - inwardLastKeyTimeRef.current) < 80;
+      inwardLastKeyTimeRef.current = now;
+
+      if (e.key === 'Enter') {
+        if (inwardBarcodeBufferRef.current.length >= 3) {
+          const scannedCode = inwardBarcodeBufferRef.current.trim();
+          inwardBarcodeBufferRef.current = '';
+          handleIncomingScan(scannedCode);
+        }
+      } else if (e.key.length === 1) {
+        if (isFastTyping || !isInputActive) {
+          inwardBarcodeBufferRef.current += e.key;
+          setTimeout(() => {
+            if (Date.now() - inwardLastKeyTimeRef.current > 450) {
+              inwardBarcodeBufferRef.current = '';
+            }
+          }, 500);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalBarcodeScan);
+    return () => window.removeEventListener('keydown', handleGlobalBarcodeScan);
+  }, [allItems, selectedItem, scanQueue]);
+
   // When selectedItemId changes, sync selectedItem state and price fields
   useEffect(() => {
     if (!selectedItemId) {

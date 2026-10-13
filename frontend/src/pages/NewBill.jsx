@@ -155,30 +155,34 @@ export default function NewBill() {
         return;
       }
 
-      // Detect hardware barcode gun (scanners output characters < 70ms apart)
+      // Detect hardware barcode gun (scanners output characters < 90ms apart)
       const now = Date.now();
-      const isFastTyping = (now - lastKeyTimeRef.current) < 75;
+      const isFastTyping = (now - lastKeyTimeRef.current) < 90;
       lastKeyTimeRef.current = now;
 
-      // Ignore normal typing in active inputs (except Enter)
-      const isInputActive = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
-      
+      const activeEl = document.activeElement;
+      const isSearchInput = activeEl === searchInputRef.current;
+      const isOtherInput = activeEl && activeEl !== searchInputRef.current && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName);
+
       if (e.key === 'Enter') {
-        if (barcodeBufferRef.current.length >= 3) {
-          const scannedCode = barcodeBufferRef.current.trim();
+        const buffered = barcodeBufferRef.current.trim();
+        const inputVal = searchInputRef.current?.value?.trim() || '';
+        const codeToMatch = buffered.length >= 3 ? buffered : (isSearchInput && inputVal.length >= 3 ? inputVal : '');
+
+        if (codeToMatch) {
+          e.preventDefault();
           barcodeBufferRef.current = '';
-          handleExactBarcodeMatch(scannedCode);
+          setSearchQuery('');
+          handleExactBarcodeMatch(codeToMatch);
         }
-      } else if (e.key.length === 1) {
-        if (isFastTyping || !isInputActive) {
-          barcodeBufferRef.current += e.key;
-          // Clear buffer if stalled for more than 500ms
-          setTimeout(() => {
-            if (Date.now() - lastKeyTimeRef.current > 450) {
-              barcodeBufferRef.current = '';
-            }
-          }, 500);
-        }
+      } else if (e.key.length === 1 && !isOtherInput) {
+        // Collect characters into scanner buffer whenever not inside a modal input
+        barcodeBufferRef.current += e.key;
+        setTimeout(() => {
+          if (Date.now() - lastKeyTimeRef.current > 450) {
+            barcodeBufferRef.current = '';
+          }
+        }, 500);
       }
     };
 

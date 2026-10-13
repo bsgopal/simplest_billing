@@ -262,7 +262,7 @@ export default function BarcodeCheatSheetModal({
                             </span>
                           )}
                         </div>
-                        {currentLang !== 'en' && item.translations?.[currentLang] && (
+                        {currentLang !== 'en' && item.translations?.[currentLang] && item.name?.trim().toLowerCase() !== getItemDisplayName(item)?.trim().toLowerCase() && (
                           <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
                             {item.name}
                           </p>

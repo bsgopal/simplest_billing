@@ -368,7 +368,7 @@ export default function Items() {
       {/* Products Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+          <table className="w-full text-xs text-left min-w-[700px]">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider">
               <tr>
                 <th className="px-4 py-3">Product Details</th>
@@ -401,7 +401,7 @@ export default function Items() {
                     <td className="px-4 py-3">
                       <div className="font-bold text-slate-900 flex items-center gap-1.5">
                         <span>{getItemDisplayName(it)}</span>
-                        {currentLang !== 'en' && it.translations?.[currentLang] && (
+                        {currentLang !== 'en' && it.translations?.[currentLang] && it.name?.trim().toLowerCase() !== getItemDisplayName(it)?.trim().toLowerCase() && (
                           <span className="text-[11px] font-normal text-slate-400">({it.name})</span>
                         )}
                       </div>

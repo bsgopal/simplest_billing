@@ -550,7 +550,7 @@ export default function NewBill() {
                     <h4 className="text-xs sm:text-sm font-black text-slate-900 leading-snug line-clamp-2 group-hover:text-brand-700">
                       {getItemDisplayName(item)}
                     </h4>
-                    {currentLang !== 'en' && item.translations?.[currentLang] && (
+                    {currentLang !== 'en' && item.translations?.[currentLang] && item.name?.trim().toLowerCase() !== getItemDisplayName(item)?.trim().toLowerCase() && (
                       <p className="text-[10px] text-slate-400 font-medium truncate">
                         {item.name}
                       </p>
@@ -642,7 +642,7 @@ export default function NewBill() {
                       {getItemDisplayName(line)}
                     </p>
                     <p className="text-[10px] text-slate-500">
-                      {currentLang !== 'en' && line.translations?.[currentLang] && `${line.name} • `}₹{line.rate} / {line.unit}
+                      {currentLang !== 'en' && line.translations?.[currentLang] && line.name?.trim().toLowerCase() !== getItemDisplayName(line)?.trim().toLowerCase() ? `${line.name} • ` : ''}₹{line.rate} / {line.unit}
                     </p>
                   </div>
 

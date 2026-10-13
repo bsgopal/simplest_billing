@@ -130,7 +130,7 @@ export default function BillsList() {
       {/* Bills Data Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+          <table className="w-full text-xs text-left min-w-[650px]">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider">
               <tr>
                 <th className="px-4 py-3">Bill No</th>

@@ -662,7 +662,7 @@ export default function BarcodeStockModal({
                             <div>
                               <div className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
                                 <span>{getItemDisplayName(it)}</span>
-                                {currentLang !== 'en' && it.translations?.[currentLang] && (
+                                {currentLang !== 'en' && it.translations?.[currentLang] && it.name?.trim().toLowerCase() !== getItemDisplayName(it)?.trim().toLowerCase() && (
                                   <span className="text-[11px] font-normal text-slate-400">({it.name})</span>
                                 )}
                               </div>
@@ -695,7 +695,7 @@ export default function BarcodeStockModal({
                         </span>
                         <h4 className="text-sm font-black text-slate-900">
                           {getItemDisplayName(selectedItem)}
-                          {currentLang !== 'en' && selectedItem.translations?.[currentLang] && (
+                          {currentLang !== 'en' && selectedItem.translations?.[currentLang] && selectedItem.name?.trim().toLowerCase() !== getItemDisplayName(selectedItem)?.trim().toLowerCase() && (
                             <span className="text-xs font-normal text-slate-500 ml-1.5">({selectedItem.name})</span>
                           )}
                         </h4>

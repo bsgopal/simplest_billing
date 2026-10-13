@@ -945,7 +945,7 @@ export default function StockInward() {
 
           {/* Rate Sheet Table */}
           <div className="overflow-x-auto border border-slate-200 rounded-xl">
-            <table className="w-full text-left text-xs whitespace-nowrap">
+            <table className="w-full text-left text-xs whitespace-nowrap min-w-[700px]">
               <thead className="bg-slate-50 border-b border-slate-200 font-black text-slate-700 uppercase tracking-wider text-[10px]">
                 <tr>
                   <th className="py-2.5 px-3 min-w-[140px]">Product</th>
@@ -1340,7 +1340,7 @@ export default function StockInward() {
                             <div>
                               <div className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
                                 <span>{getItemDisplayName(it)}</span>
-                                {currentLang !== 'en' && it.translations?.[currentLang] && (
+                                {currentLang !== 'en' && it.translations?.[currentLang] && it.name?.trim().toLowerCase() !== getItemDisplayName(it)?.trim().toLowerCase() && (
                                   <span className="text-[11px] font-normal text-slate-400">({it.name})</span>
                                 )}
                               </div>

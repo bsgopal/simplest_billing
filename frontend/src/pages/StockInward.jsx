@@ -418,8 +418,9 @@ export default function StockInward() {
         if (isMounted) setCameras(videoDevices);
 
         const videoConstraints = {
-          width: { ideal: 1280, min: 640 },
-          height: { ideal: 720, min: 480 }
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
+          focusMode: { ideal: 'continuous' }
         };
 
         if (activeCameraId) {
@@ -444,22 +445,52 @@ export default function StockInward() {
         videoRef.current.setAttribute('playsinline', 'true');
         await videoRef.current.play();
 
+        const handleDetectedCode = (text) => {
+          if (!text || scanLockRef.current) return;
+          scanLockRef.current = true;
+          handleIncomingScan(text);
+          setTimeout(() => {
+            scanLockRef.current = false;
+          }, 1100);
+        };
+
+        // Hardware-accelerated BarcodeDetector for fine 19-char Code 128
+        if ('BarcodeDetector' in window) {
+          try {
+            const formats = await window.BarcodeDetector.getSupportedFormats();
+            if (formats.includes('code_128') || formats.includes('ean_13')) {
+              const detector = new window.BarcodeDetector({ formats });
+              const nativeLoop = async () => {
+                if (!isMounted || !videoRef.current || scanLockRef.current) {
+                  if (isMounted) requestAnimationFrame(nativeLoop);
+                  return;
+                }
+                try {
+                  if (videoRef.current.readyState >= 2) {
+                    const barcodes = await detector.detect(videoRef.current);
+                    if (barcodes && barcodes.length > 0) {
+                      const sorted = [...barcodes].sort((a, b) => (b.rawValue?.length || 0) - (a.rawValue?.length || 0));
+                      const best = sorted[0]?.rawValue;
+                      if (best) handleDetectedCode(best);
+                    }
+                  }
+                } catch (e) {}
+                if (isMounted) setTimeout(nativeLoop, 80);
+              };
+              nativeLoop();
+            }
+          } catch (e) {}
+        }
+
         const reader = new BrowserMultiFormatReader(hints, 100);
         codeReaderRef.current = reader;
 
         reader.decodeFromVideoElement(
           videoRef.current,
-          (result, decodeErr) => {
+          (result) => {
             if (result && !scanLockRef.current) {
               const text = result.getText();
-              if (!text) return;
-
-              scanLockRef.current = true;
-              handleIncomingScan(text);
-
-              setTimeout(() => {
-                scanLockRef.current = false;
-              }, 1100);
+              if (text) handleDetectedCode(text);
             }
           }
         );

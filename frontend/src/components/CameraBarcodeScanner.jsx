@@ -96,11 +96,12 @@ export default function CameraBarcodeScanner({
           setActiveCameraId(backCam ? backCam.deviceId : videoDevices[0].deviceId);
         }
 
-        // 2. Request user media with clean, robust constraints
+        // 2. Request user media with clean, robust constraints (Full HD 1080p for fine Code 128 resolution)
         const videoConstraints = {
           facingMode: backCam ? { ideal: 'environment' } : { ideal: 'user' },
-          width: { ideal: 1280, min: 640 },
-          height: { ideal: 720, min: 480 }
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
+          focusMode: { ideal: 'continuous' }
         };
 
         if (activeCameraId && !backCam) {
@@ -126,37 +127,80 @@ export default function CameraBarcodeScanner({
 
         setIsScanning(true);
 
-        // Check torch capabilities
+        // Check torch & advanced capabilities
         const track = stream.getVideoTracks()[0];
         const capabilities = track?.getCapabilities?.();
         if (capabilities?.torch && isMounted) {
           setHasTorch(true);
         }
 
-        // 3. Start ZXing decoding continuously from the live video stream
+        const handleBarcodeFound = (text) => {
+          if (!text || scanLockRef.current) return;
+          scanLockRef.current = true;
+          playBeep();
+          if (isMounted) setLastScanned(text);
+          onScan(text);
+
+          if (!continuous) {
+            stopScanner();
+            onClose();
+          } else {
+            setTimeout(() => {
+              scanLockRef.current = false;
+              if (isMounted) setLastScanned(null);
+            }, 1200);
+          }
+        };
+
+        // 3. Check for Native Hardware BarcodeDetector API (Zero-error on high density 19-char Code 128)
+        let nativeDetectorRunning = false;
+        if ('BarcodeDetector' in window) {
+          try {
+            const formats = await window.BarcodeDetector.getSupportedFormats();
+            if (formats.includes('code_128') || formats.includes('ean_13')) {
+              const detector = new window.BarcodeDetector({ formats });
+              nativeDetectorRunning = true;
+
+              const detectLoop = async () => {
+                if (!isMounted || !videoRef.current || scanLockRef.current) {
+                  if (isMounted) requestAnimationFrame(detectLoop);
+                  return;
+                }
+                try {
+                  if (videoRef.current.readyState >= 2) {
+                    const barcodes = await detector.detect(videoRef.current);
+                    if (barcodes && barcodes.length > 0) {
+                      // Prefer longest detected string if multiple barcodes visible
+                      const sorted = [...barcodes].sort((a, b) => (b.rawValue?.length || 0) - (a.rawValue?.length || 0));
+                      const best = sorted[0]?.rawValue;
+                      if (best) {
+                        handleBarcodeFound(best);
+                      }
+                    }
+                  }
+                } catch (e) {}
+                if (isMounted) {
+                  setTimeout(detectLoop, 80);
+                }
+              };
+              detectLoop();
+            }
+          } catch (e) {
+            nativeDetectorRunning = false;
+          }
+        }
+
+        // Fallback / Concurrent ZXing Browser Reader with TRY_HARDER
         const codeReader = new BrowserMultiFormatReader(hints, 100);
         codeReaderRef.current = codeReader;
 
         codeReader.decodeFromVideoElement(
           videoRef.current,
-          (result, err) => {
+          (result) => {
             if (result && !scanLockRef.current) {
               const text = result.getText();
-              if (!text) return;
-
-              scanLockRef.current = true;
-              playBeep();
-              if (isMounted) setLastScanned(text);
-              onScan(text);
-
-              if (!continuous) {
-                stopScanner();
-                onClose();
-              } else {
-                setTimeout(() => {
-                  scanLockRef.current = false;
-                  if (isMounted) setLastScanned(null);
-                }, 1200);
+              if (text) {
+                handleBarcodeFound(text);
               }
             }
           }

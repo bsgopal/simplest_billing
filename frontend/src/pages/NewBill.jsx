@@ -155,9 +155,9 @@ export default function NewBill() {
         return;
       }
 
-      // Detect hardware barcode gun (scanners output characters < 35ms apart)
+      // Detect hardware barcode gun (scanners output characters < 70ms apart)
       const now = Date.now();
-      const isFastTyping = (now - lastKeyTimeRef.current) < 45;
+      const isFastTyping = (now - lastKeyTimeRef.current) < 75;
       lastKeyTimeRef.current = now;
 
       // Ignore normal typing in active inputs (except Enter)
@@ -172,12 +172,12 @@ export default function NewBill() {
       } else if (e.key.length === 1) {
         if (isFastTyping || !isInputActive) {
           barcodeBufferRef.current += e.key;
-          // Clear buffer if stalled for more than 250ms
+          // Clear buffer if stalled for more than 500ms
           setTimeout(() => {
-            if (Date.now() - lastKeyTimeRef.current > 200) {
+            if (Date.now() - lastKeyTimeRef.current > 450) {
               barcodeBufferRef.current = '';
             }
-          }, 250);
+          }, 500);
         }
       }
     };

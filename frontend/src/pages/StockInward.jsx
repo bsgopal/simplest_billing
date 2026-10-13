@@ -949,7 +949,7 @@ export default function StockInward() {
               <thead className="bg-slate-50 border-b border-slate-200 font-black text-slate-700 uppercase tracking-wider text-[10px]">
                 <tr>
                   <th className="py-2.5 px-3 min-w-[140px]">Product</th>
-                  <th className="py-2.5 px-2 text-right">Stock</th>
+                  <th className="py-2.5 px-3 text-right">Stock</th>
                   <th className="py-2.5 px-3 w-28 text-center bg-brand-50/50">+ Add Qty</th>
                   <th className="py-2.5 px-3 w-28 text-center">Cost (₹)</th>
                   <th className="py-2.5 px-3 w-36 text-center bg-brand-50/70">Selling Rate (₹)</th>
@@ -983,27 +983,29 @@ export default function StockInward() {
 
                     return (
                       <tr key={item._id} className={`transition ${isEdited ? 'bg-amber-50/40 hover:bg-amber-50/70' : 'hover:bg-slate-50'}`}>
+                        {/* 1. Product */}
                         <td className="py-2 px-3">
                           <div className="font-extrabold text-slate-900 text-xs">
                             {getItemDisplayName(item)}
                           </div>
-                          {currentLang !== 'en' && item.translations?.[currentLang] && (
+                          {currentLang !== 'en' && item.translations?.[currentLang] && item.name?.trim().toLowerCase() !== getItemDisplayName(item)?.trim().toLowerCase() && (
                             <div className="text-[10px] text-slate-400 font-medium">{item.name}</div>
                           )}
                           <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                             {item.category} {item.code ? `• #${item.code}` : ''}
                           </div>
                         </td>
-                        <td className="py-2 px-2 font-mono font-bold text-slate-600">
-                          {item.unit}
-                        </td>
+
+                        {/* 2. Live Current Stock */}
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-700">
-                          {item.currentStock} {item.unit}
+                          {formatQuantity(item.currentStock, item.unit, item.allowDecimals)}
                         </td>
+
+                        {/* 3. + Add Qty Input */}
                         <td className="py-2.5 px-3 bg-brand-50/20">
                           <input
                             type="number"
-                            step={item.allowDecimals || ['kg', 'gram', 'litre', 'ml'].includes(item.unit?.toLowerCase()) ? '0.001' : '1'}
+                            step={isDecimalUnit(item.unit, item.allowDecimals) ? 'any' : '1'}
                             min="0"
                             placeholder="0"
                             value={addStockVal}
@@ -1011,6 +1013,8 @@ export default function StockInward() {
                             className="w-full px-2.5 py-1.5 bg-white border border-slate-300 focus:border-brand-500 rounded-lg text-slate-900 font-mono font-bold text-center text-xs focus:outline-none shadow-2xs"
                           />
                         </td>
+
+                        {/* 4. Wholesale Cost (₹) */}
                         <td className="py-2.5 px-3">
                           <div className="relative">
                             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
@@ -1025,6 +1029,8 @@ export default function StockInward() {
                             />
                           </div>
                         </td>
+
+                        {/* 5. Selling Rate (₹) */}
                         <td className="py-2.5 px-3 bg-amber-50/30">
                           <div className="relative">
                             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-black text-amber-700">₹</span>
@@ -1066,9 +1072,13 @@ export default function StockInward() {
                             </button>
                           </div>
                         </td>
+
+                        {/* 6. New Total Stock */}
                         <td className="py-2 px-3 text-right font-mono font-black text-slate-800">
-                          {newTotalStock.toFixed(item.allowDecimals ? 2 : 0)} {item.unit}
+                          {formatQuantity(newTotalStock, item.unit, item.allowDecimals)}
                         </td>
+
+                        {/* 7. Total Cost for Added Qty */}
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
                           {totalCostForAdded > 0 ? `₹${totalCostForAdded.toFixed(2)}` : '—'}
                         </td>

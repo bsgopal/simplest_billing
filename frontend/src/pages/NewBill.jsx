@@ -31,7 +31,8 @@ import {
   Zap,
   Save,
   Check,
-  ChevronDown
+  ChevronDown,
+  Package
 } from 'lucide-react';
 import CameraBarcodeScanner from '../components/CameraBarcodeScanner';
 

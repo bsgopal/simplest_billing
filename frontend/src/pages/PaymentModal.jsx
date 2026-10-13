@@ -18,11 +18,11 @@ export default function PaymentModal({ onClose, onSuccess }) {
 
   const grandTotal = calculations.grandTotal;
 
-  // Payment Mode inputs
-  const [cashAmount, setCashAmount] = useState(grandTotal);
-  const [upiAmount, setUpiAmount] = useState(0);
-  const [cardAmount, setCardAmount] = useState(0);
-  const [creditAmount, setCreditAmount] = useState(0);
+  // Payment Mode inputs - keep every field empty by default
+  const [cashAmount, setCashAmount] = useState('');
+  const [upiAmount, setUpiAmount] = useState('');
+  const [cardAmount, setCardAmount] = useState('');
+  const [creditAmount, setCreditAmount] = useState('');
 
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -30,9 +30,9 @@ export default function PaymentModal({ onClose, onSuccess }) {
   // Quick cash buttons helper
   const handleQuickCash = (amt) => {
     setCashAmount(amt);
-    setUpiAmount(0);
-    setCardAmount(0);
-    setCreditAmount(0);
+    setUpiAmount('');
+    setCardAmount('');
+    setCreditAmount('');
   };
 
   const totalPaid = (parseFloat(cashAmount) || 0) + (parseFloat(upiAmount) || 0) + (parseFloat(cardAmount) || 0) + (parseFloat(creditAmount) || 0);
@@ -44,9 +44,9 @@ export default function PaymentModal({ onClose, onSuccess }) {
       return;
     }
     setCreditAmount(grandTotal);
-    setCashAmount(0);
-    setUpiAmount(0);
-    setCardAmount(0);
+    setCashAmount('');
+    setUpiAmount('');
+    setCardAmount('');
     setError('');
   };
 
@@ -170,16 +170,26 @@ export default function PaymentModal({ onClose, onSuccess }) {
               <Coins className="w-4 h-4 text-emerald-600" />
               <span>Cash:</span>
             </div>
-            <div className="relative">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={cashAmount}
-                onChange={(e) => setCashAmount(e.target.value)}
-                className="w-28 pl-6 pr-2 py-1.5 text-right font-black text-sm text-slate-900 bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:border-brand-500"
-              />
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => { setCashAmount(grandTotal); setUpiAmount(''); setCardAmount(''); setCreditAmount(''); }}
+                className="px-2 py-1 text-[10px] font-black uppercase tracking-wider bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded-md transition"
+              >
+                Full
+              </button>
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder=""
+                  value={cashAmount}
+                  onChange={(e) => setCashAmount(e.target.value)}
+                  className="w-24 pl-6 pr-2 py-1.5 text-right font-black text-sm text-slate-900 bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:border-brand-500"
+                />
+              </div>
             </div>
           </div>
 
@@ -189,16 +199,26 @@ export default function PaymentModal({ onClose, onSuccess }) {
               <QrCode className="w-4 h-4 text-blue-600" />
               <span>UPI / QR:</span>
             </div>
-            <div className="relative">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={upiAmount}
-                onChange={(e) => setUpiAmount(e.target.value)}
-                className="w-28 pl-6 pr-2 py-1.5 text-right font-black text-sm text-slate-900 bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:border-brand-500"
-              />
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => { setUpiAmount(grandTotal); setCashAmount(''); setCardAmount(''); setCreditAmount(''); }}
+                className="px-2 py-1 text-[10px] font-black uppercase tracking-wider bg-blue-100 hover:bg-blue-200 text-blue-900 rounded-md transition"
+              >
+                Full
+              </button>
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder=""
+                  value={upiAmount}
+                  onChange={(e) => setUpiAmount(e.target.value)}
+                  className="w-24 pl-6 pr-2 py-1.5 text-right font-black text-sm text-slate-900 bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:border-brand-500"
+                />
+              </div>
             </div>
           </div>
 
@@ -208,16 +228,26 @@ export default function PaymentModal({ onClose, onSuccess }) {
               <CreditCard className="w-4 h-4 text-purple-600" />
               <span>Card / POS:</span>
             </div>
-            <div className="relative">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={cardAmount}
-                onChange={(e) => setCardAmount(e.target.value)}
-                className="w-28 pl-6 pr-2 py-1.5 text-right font-black text-sm text-slate-900 bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:border-brand-500"
-              />
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => { setCardAmount(grandTotal); setCashAmount(''); setUpiAmount(''); setCreditAmount(''); }}
+                className="px-2 py-1 text-[10px] font-black uppercase tracking-wider bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-md transition"
+              >
+                Full
+              </button>
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder=""
+                  value={cardAmount}
+                  onChange={(e) => setCardAmount(e.target.value)}
+                  className="w-24 pl-6 pr-2 py-1.5 text-right font-black text-sm text-slate-900 bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:border-brand-500"
+                />
+              </div>
             </div>
           </div>
 
@@ -241,6 +271,7 @@ export default function PaymentModal({ onClose, onSuccess }) {
                   type="number"
                   min="0"
                   step="1"
+                  placeholder=""
                   value={creditAmount}
                   onChange={(e) => setCreditAmount(e.target.value)}
                   className="w-24 pl-6 pr-2 py-1.5 text-right font-black text-sm text-amber-950 bg-white border border-amber-300 rounded-lg focus:outline-hidden"

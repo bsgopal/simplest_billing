@@ -79,7 +79,7 @@ export default function NewBill() {
   const [newCustPhone, setNewCustPhone] = useState('');
   const [cameraScanOpen, setCameraScanOpen] = useState(false);
   const [quickRateModalOpen, setQuickRateModalOpen] = useState(false);
-  const [quickRateCategory, setQuickRateCategory] = useState('Vegetables');
+  const [quickRateCategory, setQuickRateCategory] = useState('All');
   const [quickRateEdits, setQuickRateEdits] = useState({});
   const [savingQuickRates, setSavingQuickRates] = useState(false);
 
@@ -447,11 +447,11 @@ export default function NewBill() {
               <button
                 type="button"
                 onClick={() => {
-                  setQuickRateCategory(selectedCategory !== 'All' ? selectedCategory : 'Vegetables');
+                  setQuickRateCategory(selectedCategory || 'All');
                   setQuickRateEdits({});
                   setQuickRateModalOpen(true);
                 }}
-                title="Change today's vegetable/mandi rates without leaving billing counter"
+                title="Change today's daily product rates without leaving billing counter"
                 className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 font-extrabold rounded-xl text-xs transition shadow-2xs shrink-0 active:scale-95"
               >
                 <Zap className="w-4 h-4 text-amber-600" />

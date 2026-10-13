@@ -456,13 +456,13 @@ export default function Categories() {
                 <TransliterateInput
                   required
                   autoFocus
-                  placeholder={currentLang === 'ta' ? "e.g. thayir, kaaikari, pazham..." : "e.g. Dairy, Grocery..."}
+                  placeholder={currentLang === 'ta' ? "பிரிவு பெயர் உள்ளிடவும் (e.g. Type category name)..." : "Enter category name..."}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm font-bold focus:outline-none focus:border-brand-500"
                 />
                 <p className="text-[11px] text-slate-500 mt-1 font-medium">
-                  Type in English (e.g. <span className="font-mono text-slate-700 font-bold">thayir</span>) — converts automatically to <span className="font-bold text-slate-900">{getLanguageInfo?.()?.native || 'தமிழ்'}</span>.
+                  Type in English (Tanglish) — converts automatically to <span className="font-bold text-slate-900">{getLanguageInfo?.()?.native || 'தமிழ்'}</span>.
                 </p>
               </div>
 

@@ -490,7 +490,7 @@ export default function Items() {
                 <label className="text-xs font-bold text-slate-700 block mb-1">Product Name *</label>
                 <TransliterateInput
                   required
-                  placeholder="e.g. Tomato, Sugar 1kg, Milk..."
+                  placeholder="Enter product name (பொருள் பெயர்)..."
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-hidden focus:border-brand-500"
@@ -508,7 +508,7 @@ export default function Items() {
                         const newCat = await prompt({
                           title: 'Create Category',
                           message: 'Enter new category name:',
-                          placeholder: 'e.g. kaaikari, snacks...',
+                          placeholder: 'Enter category name...',
                           confirmText: 'Add Category'
                         });
                         if (newCat && newCat.trim()) {

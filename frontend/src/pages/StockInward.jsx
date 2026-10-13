@@ -1111,7 +1111,7 @@ export default function StockInward() {
                     autoFocus
                     value={newItemForm.name}
                     onChange={(e) => setNewItemForm({ ...newItemForm, name: e.target.value })}
-                    placeholder="e.g. Tomato, Parle-G 250g, Aavin Milk..."
+                    placeholder="Enter product name (பொருள் பெயர் உள்ளிடவும்)..."
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm font-bold focus:outline-none focus:border-brand-500"
                   />
                 </div>
@@ -1129,7 +1129,7 @@ export default function StockInward() {
                           const newCat = await prompt({
                             title: 'Create Category',
                             message: 'Enter new category name:',
-                            placeholder: 'e.g. kaaikari, snacks...',
+                            placeholder: 'Enter category name...',
                             confirmText: 'Add Category'
                           });
                           if (newCat && newCat.trim()) {
@@ -1444,7 +1444,7 @@ export default function StockInward() {
               }`}
             >
               <Scale className="w-4 h-4" />
-              <span>Weight &amp; Daily Rates (Vegetables / Loose kg)</span>
+              <span>Weight &amp; Loose Inward (kg / gram)</span>
             </button>
 
             <button
@@ -1486,7 +1486,7 @@ export default function StockInward() {
                   <Package className="w-8 h-8 mx-auto text-slate-300" />
                   <p className="font-bold text-slate-700 text-sm">Please select a product on the left first</p>
                   <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                    Search and pick Tomato, Onion, Potato or any product in Step 1 to add purchased stock.
+                    Search and pick any product from the catalog on the left to add purchased stock.
                   </p>
                 </div>
               ) : (

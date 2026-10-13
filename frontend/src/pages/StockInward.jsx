@@ -824,58 +824,58 @@ export default function StockInward() {
         ))}
       </div>
 
-      {/* Top Header */}
-      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Barcode className="w-5 h-5 text-brand-600" />
-            Stock Inward &amp; Rate Management
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-100 text-brand-900 border border-brand-300">
-              <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
-              MULTI-MODE INWARD
-            </span>
-          </h2>
-          <p className="text-xs text-slate-500 font-medium">
-            Daily Mandi Rate Sheet &bull; Single-item loose inward &bull; Continuous barcode scanner
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Top Navigation & Mode Switcher Bar */}
+      <div className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2">
           {/* Top-Level Mode Selector */}
-          <div className="bg-slate-100 p-1 rounded-xl border border-slate-200 flex items-center gap-1">
+          <div className="bg-slate-100 p-1 rounded-xl border border-slate-200 flex items-center gap-1 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => setMainMode('sheet')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition ${
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-black transition ${
                 mainMode === 'sheet'
                   ? 'bg-brand-500 text-slate-950 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <ClipboardList className="w-4 h-4" />
-              <span>📋 Daily Rate Sheet</span>
+              <ClipboardList className="w-4 h-4 text-slate-950" />
+              <span>Daily Rate &amp; Inward Sheet</span>
             </button>
             <button
               type="button"
               onClick={() => setMainMode('individual')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition ${
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-black transition ${
                 mainMode === 'individual'
                   ? 'bg-brand-500 text-slate-950 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <Scale className="w-4 h-4" />
-              <span>⚖️ Single Product &amp; Barcode</span>
+              <Scale className="w-4 h-4 text-slate-950" />
+              <span>Barcode &amp; Single Inward</span>
             </button>
           </div>
+        </div>
+
+        <div className="flex items-center justify-between sm:justify-end gap-2">
+          {mainMode === 'sheet' && (
+            <button
+              type="button"
+              onClick={handleSaveRateSheet}
+              disabled={savingSheet || Object.keys(rateSheetRows).length === 0}
+              className="flex-1 sm:flex-none px-4 py-2 bg-brand-500 hover:bg-brand-400 text-slate-950 font-black rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-40"
+            >
+              <Save className="w-4 h-4" />
+              <span>{savingSheet ? 'Saving...' : `Save Changes (${Object.keys(rateSheetRows).length})`}</span>
+            </button>
+          )}
 
           <button
             type="button"
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className={`p-2.5 rounded-xl border transition ${
+            className={`p-2 rounded-xl border transition shrink-0 ${
               soundEnabled ? 'text-brand-800 bg-brand-50 border-brand-200' : 'text-slate-400 bg-slate-100 border-slate-200'
             }`}
-            title="Toggle Beep Sound"
+            title="Toggle Sound"
           >
             {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
@@ -884,38 +884,10 @@ export default function StockInward() {
 
       {/* VIEW 1: DAILY MANDI / BULK RATE SHEET (Fast Table for Vegetables, Fruits & All Items) */}
       {mainMode === 'sheet' && (
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <ClipboardList className="w-5 h-5 text-brand-600" />
-                  Daily Mandi / Bulk Rate &amp; Inward Sheet
-                </h3>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                  1-Click Save
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Quickly enter today's purchased kg, wholesale purchase cost, and selling rates across all products in one screen.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={handleSaveRateSheet}
-                disabled={savingSheet || Object.keys(rateSheetRows).length === 0}
-                className="px-5 py-2.5 bg-brand-500 hover:bg-brand-400 text-slate-950 font-black rounded-xl text-xs sm:text-sm transition shadow-sm flex items-center gap-2 active:scale-95 disabled:opacity-50"
-              >
-                <Save className="w-4 h-4" />
-                <span>{savingSheet ? 'Saving Changes...' : `Save Today's Rates & Stock (${Object.keys(rateSheetRows).length})`}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Filters: Category Pills + Search Box */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+          
+          {/* Filters Bar: Category Pills + Search Box */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar flex-1">
               <button
                 type="button"
@@ -926,7 +898,7 @@ export default function StockInward() {
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                All Categories ({allItems.length})
+                All ({allItems.length})
               </button>
               {categories.map(cat => (
                 <button
@@ -944,13 +916,13 @@ export default function StockInward() {
               ))}
             </div>
 
-            <div className="relative sm:w-64 shrink-0">
+            <div className="relative sm:w-60 shrink-0">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={sheetSearch}
                 onChange={(e) => setSheetSearch(e.target.value)}
-                placeholder="Filter items..."
+                placeholder="Search items..."
                 className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-brand-500"
               />
             </div>
@@ -958,17 +930,16 @@ export default function StockInward() {
 
           {/* Rate Sheet Table */}
           <div className="overflow-x-auto border border-slate-200 rounded-xl">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 font-black text-slate-700 uppercase tracking-wider text-[11px]">
+            <table className="w-full text-left text-xs whitespace-nowrap">
+              <thead className="bg-slate-50 border-b border-slate-200 font-black text-slate-700 uppercase tracking-wider text-[10px]">
                 <tr>
-                  <th className="py-2.5 px-3">Item Name</th>
-                  <th className="py-2.5 px-2">Unit</th>
-                  <th className="py-2.5 px-3 text-right">Current Stock</th>
-                  <th className="py-2.5 px-3 w-32 text-center bg-brand-50/50">+ Add Stock</th>
-                  <th className="py-2.5 px-3 w-32 text-center">Cost Price (₹)</th>
-                  <th className="py-2.5 px-3 w-32 text-center bg-brand-50/70">Selling Rate (₹)</th>
+                  <th className="py-2.5 px-3 min-w-[140px]">Product</th>
+                  <th className="py-2.5 px-2 text-right">Stock</th>
+                  <th className="py-2.5 px-3 w-28 text-center bg-brand-50/50">+ Add Qty</th>
+                  <th className="py-2.5 px-3 w-28 text-center">Cost (₹)</th>
+                  <th className="py-2.5 px-3 w-36 text-center bg-brand-50/70">Selling Rate (₹)</th>
                   <th className="py-2.5 px-3 text-right">New Stock</th>
-                  <th className="py-2.5 px-3 text-right">Today's Inward Cost</th>
+                  <th className="py-2.5 px-3 text-right">Total Cost</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1014,7 +985,7 @@ export default function StockInward() {
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-700">
                           {item.currentStock} {item.unit}
                         </td>
-                        <td className="py-2 px-3 bg-brand-50/30">
+                        <td className="py-2.5 px-3 bg-brand-50/20">
                           <input
                             type="number"
                             step={item.allowDecimals || ['kg', 'gram', 'litre', 'ml'].includes(item.unit?.toLowerCase()) ? '0.001' : '1'}
@@ -1022,12 +993,12 @@ export default function StockInward() {
                             placeholder="0"
                             value={addStockVal}
                             onChange={(e) => handleSheetRowChange(item._id, 'addStock', e.target.value)}
-                            className="w-full px-2 py-1.5 bg-white border border-brand-300 rounded-lg text-slate-900 font-mono font-black text-center text-xs focus:outline-none focus:border-brand-600 shadow-2xs"
+                            className="w-full px-2.5 py-1.5 bg-white border border-slate-300 focus:border-brand-500 rounded-lg text-slate-900 font-mono font-bold text-center text-xs focus:outline-none shadow-2xs"
                           />
                         </td>
-                        <td className="py-2 px-3">
+                        <td className="py-2.5 px-3">
                           <div className="relative">
-                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">₹</span>
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
                             <input
                               type="number"
                               step="0.01"
@@ -1035,13 +1006,13 @@ export default function StockInward() {
                               placeholder="0.00"
                               value={costVal}
                               onChange={(e) => handleSheetRowChange(item._id, 'costPrice', e.target.value)}
-                              className="w-full pl-5 pr-2 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono text-center text-xs focus:outline-none focus:border-brand-500 shadow-2xs"
+                              className="w-full pl-6 pr-2 py-1.5 bg-white border border-slate-300 focus:border-brand-500 rounded-lg text-slate-900 font-mono text-center text-xs focus:outline-none shadow-2xs"
                             />
                           </div>
                         </td>
-                        <td className="py-2 px-3 bg-brand-50/50">
+                        <td className="py-2.5 px-3 bg-amber-50/30">
                           <div className="relative">
-                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-brand-700">₹</span>
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-black text-amber-700">₹</span>
                             <input
                               type="number"
                               step="0.01"
@@ -1049,32 +1020,32 @@ export default function StockInward() {
                               placeholder="0.00"
                               value={sellVal}
                               onChange={(e) => handleSheetRowChange(item._id, 'sellingPrice', e.target.value)}
-                              className="w-full pl-5 pr-2 py-1.5 bg-white border-2 border-brand-500 rounded-lg text-brand-950 font-mono font-black text-center text-xs focus:outline-none focus:border-brand-600 shadow-2xs"
+                              className="w-full pl-6 pr-2 py-1.5 bg-white border-2 border-brand-500 rounded-lg text-slate-950 font-mono font-black text-center text-xs focus:outline-none shadow-2xs"
                             />
                           </div>
-                          {/* Quick Margin Suggestion Chips */}
+                          {/* Margin Suggestion Buttons */}
                           <div className="flex items-center justify-center gap-1 mt-1">
                             <button
                               type="button"
                               onClick={() => handleApplyMargin(item._id, 20)}
-                              className="px-1 py-0.5 text-[9px] font-extrabold bg-white hover:bg-brand-100 text-brand-800 rounded border border-brand-200 transition"
-                              title="Calculate +20% margin on cost price"
+                              className="px-1.5 py-0.5 text-[9px] font-black bg-white hover:bg-brand-50 text-slate-700 hover:text-brand-900 rounded border border-slate-200 shadow-2xs"
+                              title="+20% margin"
                             >
                               +20%
                             </button>
                             <button
                               type="button"
                               onClick={() => handleApplyMargin(item._id, 25)}
-                              className="px-1 py-0.5 text-[9px] font-extrabold bg-white hover:bg-brand-100 text-brand-800 rounded border border-brand-200 transition"
-                              title="Calculate +25% margin on cost price"
+                              className="px-1.5 py-0.5 text-[9px] font-black bg-white hover:bg-brand-50 text-slate-700 hover:text-brand-900 rounded border border-slate-200 shadow-2xs"
+                              title="+25% margin"
                             >
                               +25%
                             </button>
                             <button
                               type="button"
                               onClick={() => handleApplyMargin(item._id, 30)}
-                              className="px-1 py-0.5 text-[9px] font-extrabold bg-white hover:bg-brand-100 text-brand-800 rounded border border-brand-200 transition"
-                              title="Calculate +30% margin on cost price"
+                              className="px-1.5 py-0.5 text-[9px] font-black bg-white hover:bg-brand-50 text-slate-700 hover:text-brand-900 rounded border border-slate-200 shadow-2xs"
+                              title="+30% margin"
                             >
                               +30%
                             </button>

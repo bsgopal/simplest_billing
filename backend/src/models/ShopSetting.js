@@ -13,6 +13,7 @@ const shopSettingSchema = new mongoose.Schema({
   chargeGst: { type: Boolean, default: false },
   gstin: { type: String, default: '' },
   priceIncludesGst: { type: Boolean, default: true },
+  defaultGstRate: { type: Number, default: 0 },
   paperSize: { type: String, enum: ['58mm', '80mm', 'A4'], default: '80mm' },
   billPrefix: { type: String, default: 'BILL-' },
   headerLines: { type: [String], default: ['Welcome to our store'] },

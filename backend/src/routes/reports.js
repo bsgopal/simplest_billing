@@ -151,18 +151,21 @@ router.get('/summary', protect, async (req, res) => {
       cardSales += (b.payments?.card || 0);
       creditSales += (b.payments?.credit || 0);
       totalDiscounts += (b.billDiscount || 0);
-      totalTax += (b.totalTax || 0);
+      totalTax += (b.taxAmount || b.totalTax || 0);
 
       if (Array.isArray(b.items)) {
         for (const it of b.items) {
           const key = it.name || 'Unknown';
+          const qty = Number(it.qty !== undefined ? it.qty : (it.quantity || 0));
+          const lineAmt = Number(it.amount !== undefined ? it.amount : (it.total || 0));
           const existing = itemAggregate.get(key) || { name: key, unit: it.unit || 'pcs', quantity: 0, totalAmount: 0 };
-          existing.quantity += Number(it.quantity || 0);
-          existing.totalAmount += Number(it.total || 0);
+          existing.quantity += qty;
+          existing.totalAmount += lineAmt;
           itemAggregate.set(key, existing);
 
-          if (it.costPrice) {
-            estimatedCost += (it.costPrice * it.quantity);
+          const cost = Number(it.purchasePrice || it.costPrice || 0);
+          if (cost > 0) {
+            estimatedCost += (cost * qty);
           }
 
           const rate = Number(it.gstPercent || it.taxRate || 0);
@@ -170,12 +173,21 @@ router.get('/summary', protect, async (req, res) => {
           if (!slabAggregate[slabKey]) {
             slabAggregate[slabKey] = { slab: slabKey, taxable: 0, cgst: 0, sgst: 0, total: 0 };
           }
-          const taxableVal = Number(it.total || 0);
-          const taxVal = Number(it.taxAmount || 0);
-          slabAggregate[slabKey].taxable += taxableVal;
-          slabAggregate[slabKey].cgst += taxVal / 2;
-          slabAggregate[slabKey].sgst += taxVal / 2;
-          slabAggregate[slabKey].total += taxVal;
+
+          let itemTax = Number(it.taxAmount || 0);
+          let itemTaxable = Number(it.taxableAmount || 0);
+
+          if (!itemTax && rate > 0) {
+            itemTaxable = lineAmt / (1 + (rate / 100));
+            itemTax = lineAmt - itemTaxable;
+          } else if (rate === 0 && !itemTaxable) {
+            itemTaxable = lineAmt;
+          }
+
+          slabAggregate[slabKey].taxable += itemTaxable;
+          slabAggregate[slabKey].cgst += itemTax / 2;
+          slabAggregate[slabKey].sgst += itemTax / 2;
+          slabAggregate[slabKey].total += itemTax;
         }
       }
     }

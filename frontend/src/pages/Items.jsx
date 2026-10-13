@@ -425,6 +425,11 @@ export default function Items() {
                 }`}>
                   Stock: {it.currentStock} {it.unit}
                 </span>
+                {it.gstPercent > 0 && (
+                  <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 font-black rounded-lg border border-blue-200 text-[10px]">
+                    {it.gstPercent}% GST
+                  </span>
+                )}
                 <span className="text-[11px] text-slate-500 font-semibold ml-auto">
                   Cost: ₹{it.purchasePrice.toFixed(2)}
                 </span>
@@ -519,7 +524,16 @@ export default function Items() {
                     <td className="px-4 py-3 text-slate-600 font-semibold">{it.category}</td>
                     <td className="px-4 py-3 text-slate-600 uppercase font-bold text-[10px]">{it.unit}</td>
                     <td className="px-4 py-3 text-right text-slate-500 font-bold">₹{it.purchasePrice.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-right font-black text-brand-700 text-sm">₹{it.sellingPrice.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right font-black text-brand-700 text-sm">
+                      <div>₹{it.sellingPrice.toFixed(2)}</div>
+                      {it.gstPercent > 0 && (
+                        <div className="mt-0.5">
+                          <span className="inline-block text-[9px] font-black px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded">
+                            {it.gstPercent}% GST{it.hsn ? ` • ${it.hsn}` : ''}
+                          </span>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`px-2 py-0.5 rounded-full font-black text-[10px] ${
                         it.currentStock <= it.lowStockLevel
@@ -738,6 +752,35 @@ export default function Items() {
                     value={formData.purchasePrice}
                     onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              {/* GST Tax Rate & HSN Code */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">GST Tax Rate (%)</label>
+                  <select
+                    value={formData.gstPercent}
+                    onChange={(e) => setFormData({ ...formData, gstPercent: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-hidden focus:border-brand-500"
+                  >
+                    <option value={0}>0% (Tax Exempt / Nil)</option>
+                    <option value={5}>5% (Essential Goods)</option>
+                    <option value={12}>12% (Processed / Dairy)</option>
+                    <option value={18}>18% (Standard FMCG)</option>
+                    <option value={28}>28% (Luxury / Aerated)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">HSN / SAC Code</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 1006, 0902"
+                    value={formData.hsn || ''}
+                    onChange={(e) => setFormData({ ...formData, hsn: e.target.value.trim() })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-hidden focus:border-brand-500"
                   />
                 </div>
               </div>

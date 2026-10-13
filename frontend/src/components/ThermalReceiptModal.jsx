@@ -1,4 +1,4 @@
-﻿import React, { useRef } from 'react';
+import React, { useRef } from 'react';
 import { Printer, Share2, PlusCircle, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -56,7 +56,7 @@ export default function ThermalReceiptModal({ bill, onClose, onNewBill }) {
             <h2 className="text-sm font-black uppercase tracking-tight text-slate-900">{shop?.shopName || 'Retail Store'}</h2>
             <p className="text-[11px] text-slate-600">{shop?.address || 'Main Road'}</p>
             <p className="text-[11px] text-slate-600">Ph: {shop?.phone || ''}</p>
-            {shop?.chargeGst && shop?.gstin && (
+            {(shop?.chargeGst || bill.taxAmount > 0) && shop?.gstin && (
               <p className="text-[10px] text-slate-700 font-bold">GSTIN: {shop.gstin}</p>
             )}
           </div>
@@ -86,7 +86,14 @@ export default function ThermalReceiptModal({ bill, onClose, onNewBill }) {
             <tbody>
               {bill.items.map((it, idx) => (
                 <tr key={idx} className="border-b border-slate-100">
-                  <td className="py-1 font-semibold">{it.name}</td>
+                  <td className="py-1 font-semibold">
+                    <div>{it.name}</div>
+                    {(it.gstPercent > 0 || it.hsn) && (
+                      <div className="text-[9px] text-slate-500 font-normal">
+                        {it.hsn ? `HSN:${it.hsn} ` : ''}{it.gstPercent ? `(${it.gstPercent}% GST)` : ''}
+                      </div>
+                    )}
+                  </td>
                   <td className="py-1 text-center">{it.qty} {it.unit}</td>
                   <td className="py-1 text-right">{it.rate.toFixed(2)}</td>
                   <td className="py-1 text-right font-bold">{it.amount.toFixed(2)}</td>
@@ -108,10 +115,20 @@ export default function ThermalReceiptModal({ bill, onClose, onNewBill }) {
               </div>
             )}
             {bill.taxAmount > 0 && (
-              <div className="flex justify-between text-slate-600">
-                <span>GST:</span>
-                <span>₹{bill.taxAmount.toFixed(2)}</span>
-              </div>
+              <>
+                <div className="flex justify-between text-slate-600">
+                  <span>CGST:</span>
+                  <span>₹{((bill.cgstAmount !== undefined ? bill.cgstAmount : (bill.taxAmount / 2)) || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>SGST:</span>
+                  <span>₹{((bill.sgstAmount !== undefined ? bill.sgstAmount : (bill.taxAmount / 2)) || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-slate-700">
+                  <span>Total GST:</span>
+                  <span>₹{bill.taxAmount.toFixed(2)}</span>
+                </div>
+              </>
             )}
             {bill.roundOff !== 0 && (
               <div className="flex justify-between text-slate-500">

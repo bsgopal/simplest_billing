@@ -129,24 +129,30 @@ export const BillingProvider = ({ children }) => {
   const calculations = useMemo(() => {
     let subTotal = 0;
     let taxAmount = 0;
+    let taxableAmount = 0;
 
     for (const line of cartItems) {
       subTotal += line.amount;
       const gst = line.gstPercent || 0;
       if (shop?.chargeGst && gst > 0) {
         if (shop?.priceIncludesGst) {
-          taxAmount += (line.amount - (line.amount / (1 + (gst / 100))));
+          const base = line.amount / (1 + (gst / 100));
+          taxAmount += (line.amount - base);
+          taxableAmount += base;
         } else {
           taxAmount += (line.amount * (gst / 100));
+          taxableAmount += line.amount;
         }
+      } else {
+        taxableAmount += line.amount;
       }
     }
 
     const discount = parseFloat(billDiscount) || 0;
-    const taxableAfterDisc = Math.max(0, subTotal - discount);
+    const taxableAfterDisc = Math.max(0, taxableAmount - discount);
     let grand = shop?.chargeGst && !shop?.priceIncludesGst
-      ? (taxableAfterDisc + taxAmount)
-      : taxableAfterDisc;
+      ? Math.max(0, subTotal - discount + taxAmount)
+      : Math.max(0, subTotal - discount);
 
     let roundOff = 0;
     if (shop?.roundOff !== false) {
@@ -155,10 +161,16 @@ export const BillingProvider = ({ children }) => {
       grand = rounded;
     }
 
+    const cgstAmount = taxAmount / 2;
+    const sgstAmount = taxAmount / 2;
+
     return {
-      subTotal,
+      subTotal: Math.round(subTotal * 100) / 100,
       billDiscount: discount,
+      taxableAmount: Math.round(taxableAfterDisc * 100) / 100,
       taxAmount: Math.round(taxAmount * 100) / 100,
+      cgstAmount: Math.round(cgstAmount * 100) / 100,
+      sgstAmount: Math.round(sgstAmount * 100) / 100,
       roundOff: Math.round(roundOff * 100) / 100,
       grandTotal: grand,
       totalItems: cartItems.length,

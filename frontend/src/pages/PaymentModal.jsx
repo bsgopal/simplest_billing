@@ -133,11 +133,26 @@ export default function PaymentModal({ onClose, onSuccess }) {
         </div>
 
         {/* Big Grand Total Display */}
-        <div className="my-3 p-3.5 bg-slate-900 text-white rounded-2xl flex items-center justify-between">
-          <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Total Due:</span>
-          <span className="text-2xl sm:text-3xl font-black text-brand-400">
-            ₹{grandTotal.toFixed(2)}
-          </span>
+        <div className="my-3 p-3.5 bg-slate-900 text-white rounded-2xl">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Total Due:</span>
+            <span className="text-2xl sm:text-3xl font-black text-brand-400">
+              ₹{grandTotal.toFixed(2)}
+            </span>
+          </div>
+          {(calculations.taxAmount > 0 || billDiscount > 0) && (
+            <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400 font-semibold">
+              <span>Subtotal: ₹{calculations.subTotal.toFixed(2)}</span>
+              {calculations.taxAmount > 0 && (
+                <span className="text-lime-400">
+                  GST: ₹{calculations.taxAmount.toFixed(2)} (CGST ₹{calculations.cgstAmount.toFixed(2)} + SGST ₹{calculations.sgstAmount.toFixed(2)})
+                </span>
+              )}
+              {billDiscount > 0 && (
+                <span className="text-red-400">Disc: -₹{billDiscount.toFixed(2)}</span>
+              )}
+            </div>
+          )}
         </div>
 
         {error && (

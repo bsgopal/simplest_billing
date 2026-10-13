@@ -10,7 +10,11 @@ const billItemSchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   purchasePrice: { type: Number, default: 0 },
   gstPercent: { type: Number, default: 0 },
-  hsn: { type: String, default: '' }
+  hsn: { type: String, default: '' },
+  taxableAmount: { type: Number, default: 0 },
+  taxAmount: { type: Number, default: 0 },
+  cgst: { type: Number, default: 0 },
+  sgst: { type: Number, default: 0 }
 }, { _id: false });
 
 const billSchema = new mongoose.Schema({
@@ -25,7 +29,10 @@ const billSchema = new mongoose.Schema({
   items: [billItemSchema],
   subTotal: { type: Number, required: true },
   billDiscount: { type: Number, default: 0 },
+  taxableAmount: { type: Number, default: 0 },
   taxAmount: { type: Number, default: 0 },
+  cgstAmount: { type: Number, default: 0 },
+  sgstAmount: { type: Number, default: 0 },
   roundOff: { type: Number, default: 0 },
   grandTotal: { type: Number, required: true },
   payments: {

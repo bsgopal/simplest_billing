@@ -992,7 +992,7 @@ export default function StockInward() {
                             <div className="text-[10px] text-slate-400 font-medium">{item.name}</div>
                           )}
                           <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                            {item.category} {item.code ? `• #${item.code}` : ''}
+                            {item.category} {item.code ? `• #${item.code}` : ''} {item.gstPercent > 0 ? `• ${item.gstPercent}% GST` : ''}
                           </div>
                         </td>
 

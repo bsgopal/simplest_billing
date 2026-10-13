@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import { getTenantDb } from '../config/tenantConnectionManager.js';
 import { protect, authorize } from '../middleware/auth.js';
 
@@ -26,6 +26,7 @@ router.post('/', protect, async (req, res) => {
 
     let subTotal = 0;
     let taxAmount = 0;
+    let taxableAmount = 0;
     const processedItems = [];
 
     for (const line of items) {
@@ -36,13 +37,23 @@ router.post('/', protect, async (req, res) => {
       subTotal += lineAmount;
 
       const gst = parseFloat(line.gstPercent) || 0;
+      let lineTax = 0;
+      let lineTaxable = lineAmount;
+
       if (settings?.chargeGst && gst > 0) {
         if (settings?.priceIncludesGst) {
-          taxAmount += (lineAmount - (lineAmount / (1 + (gst / 100))));
+          lineTaxable = lineAmount / (1 + (gst / 100));
+          lineTax = lineAmount - lineTaxable;
         } else {
-          taxAmount += (lineAmount * (gst / 100));
+          lineTaxable = lineAmount;
+          lineTax = lineAmount * (gst / 100);
         }
       }
+
+      taxAmount += lineTax;
+      taxableAmount += lineTaxable;
+      const lineCgst = lineTax / 2;
+      const lineSgst = lineTax / 2;
 
       processedItems.push({
         itemId: line.itemId || null,
@@ -54,7 +65,11 @@ router.post('/', protect, async (req, res) => {
         amount: lineAmount,
         purchasePrice: line.purchasePrice || 0,
         gstPercent: gst,
-        hsn: line.hsn || ''
+        hsn: line.hsn || '',
+        taxableAmount: Math.round(lineTaxable * 100) / 100,
+        taxAmount: Math.round(lineTax * 100) / 100,
+        cgst: Math.round(lineCgst * 100) / 100,
+        sgst: Math.round(lineSgst * 100) / 100
       });
     }
 
@@ -124,7 +139,10 @@ router.post('/', protect, async (req, res) => {
       items: processedItems,
       subTotal,
       billDiscount: totalDiscount,
+      taxableAmount: Math.round(taxableAfterDisc * 100) / 100,
       taxAmount: Math.round(taxAmount * 100) / 100,
+      cgstAmount: Math.round((taxAmount / 2) * 100) / 100,
+      sgstAmount: Math.round((taxAmount / 2) * 100) / 100,
       roundOff: Math.round(roundOff * 100) / 100,
       grandTotal,
       payments: { cash, upi, card, credit },

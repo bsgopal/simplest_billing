@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Settings as SettingsIcon, Store, Printer, Shield, Save, Users, Plus, Check, RefreshCw, Languages, Globe } from 'lucide-react';
+import { Settings as SettingsIcon, Store, Printer, Shield, Save, Users, Plus, Check, RefreshCw, Languages, Globe, Percent } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import TransliterateInput from '../components/TransliterateInput';
 
 export default function Settings() {
-  const { user, client } = useAuth();
+  const { user, client, updateShop } = useAuth();
   const [activeTab, setActiveTab] = useState('SHOP');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -16,7 +16,10 @@ export default function Settings() {
     shopName: '',
     phone: '',
     address: '',
+    chargeGst: false,
     gstin: '',
+    priceIncludesGst: true,
+    defaultGstRate: 0,
     upiId: '',
     footerNote: 'Thank you! Visit again.',
     printerWidth: '58mm',
@@ -63,7 +66,9 @@ export default function Settings() {
     e.preventDefault();
     try {
       setSaving(true);
-      await axios.put('/api/settings', settings);
+      const res = await axios.put('/api/settings', settings);
+      const updated = res.data?.settings || settings;
+      if (updateShop) updateShop(updated);
       alert('Settings updated successfully!');
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to save settings');
@@ -170,27 +175,111 @@ export default function Settings() {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">GSTIN Number (Optional)</label>
+          {/* GST & Tax Configuration Section */}
+          <div className="p-4 bg-slate-900/90 rounded-2xl border border-slate-700/80 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-bold text-white flex items-center gap-2">
+                  <Percent className="w-4 h-4 text-lime-400" />
+                  Enable GST Tax Billing
+                </div>
+                <div className="text-xs text-slate-400 mt-0.5">
+                  Calculate CGST / SGST on bills, print GSTIN on thermal receipts & generate tax filing reports
+                </div>
+              </div>
               <input
-                type="text"
-                value={settings.gstin}
-                onChange={(e) => setSettings({ ...settings, gstin: e.target.value.toUpperCase() })}
-                placeholder="33AAAAA0000A1Z5"
-                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-lime-500"
+                type="checkbox"
+                checked={Boolean(settings.chargeGst)}
+                onChange={(e) => setSettings({ ...settings, chargeGst: e.target.checked })}
+                className="w-5 h-5 accent-lime-500 rounded cursor-pointer"
               />
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">UPI ID (For Dynamic QR Code)</label>
-              <input
-                type="text"
-                value={settings.upiId}
-                onChange={(e) => setSettings({ ...settings, upiId: e.target.value })}
-                placeholder="e.g. 9842512143@upi or shop@okaxis"
-                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-lime-500"
-              />
-            </div>
+
+            {settings.chargeGst && (
+              <div className="space-y-4 pt-3 border-t border-slate-800 animate-in fade-in duration-150">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                      GSTIN Number (15 Digits) *
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={15}
+                      value={settings.gstin || ''}
+                      onChange={(e) => setSettings({ ...settings, gstin: e.target.value.toUpperCase().trim() })}
+                      placeholder="e.g. 33AAAAA0000A1Z5"
+                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono font-bold focus:outline-none focus:border-lime-500"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">State code + PAN + entity + checksum</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                      Default Product GST Slab (%)
+                    </label>
+                    <select
+                      value={settings.defaultGstRate || 0}
+                      onChange={(e) => setSettings({ ...settings, defaultGstRate: Number(e.target.value) })}
+                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:border-lime-500"
+                    >
+                      <option value={0}>0% (Exempt / Nil)</option>
+                      <option value={5}>5% (Essential Goods)</option>
+                      <option value={12}>12% (Processed Goods)</option>
+                      <option value={18}>18% (Standard FMCG)</option>
+                      <option value={28}>28% (Luxury / Aerated)</option>
+                    </select>
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">Default tax rate for newly created products</span>
+                  </div>
+                </div>
+
+                {/* Tax Inclusive vs Exclusive Mode */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase mb-2">
+                    GST Calculation Mode
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div
+                      onClick={() => setSettings({ ...settings, priceIncludesGst: true })}
+                      className={`cursor-pointer p-3.5 rounded-xl border transition ${
+                        settings.priceIncludesGst !== false
+                          ? 'bg-lime-500/10 border-lime-500 ring-1 ring-lime-500'
+                          : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="font-bold text-white text-xs sm:text-sm">🟢 Tax Inclusive (Retail Default)</div>
+                      <div className="text-[11px] text-slate-400 mt-1">
+                        Selling prices already include GST. (e.g. ₹100 item @ 18% = Base ₹84.75 + GST ₹15.25 = ₹100 total)
+                      </div>
+                    </div>
+
+                    <div
+                      onClick={() => setSettings({ ...settings, priceIncludesGst: false })}
+                      className={`cursor-pointer p-3.5 rounded-xl border transition ${
+                        settings.priceIncludesGst === false
+                          ? 'bg-lime-500/10 border-lime-500 ring-1 ring-lime-500'
+                          : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="font-bold text-white text-xs sm:text-sm">🔵 Tax Exclusive (Wholesale / B2B)</div>
+                      <div className="text-[11px] text-slate-400 mt-1">
+                        GST is added on top of selling price. (e.g. ₹100 item @ 18% = Base ₹100 + GST ₹18 = ₹118 total)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-300 uppercase mb-1">UPI ID (For Dynamic QR Code)</label>
+            <input
+              type="text"
+              value={settings.upiId || ''}
+              onChange={(e) => setSettings({ ...settings, upiId: e.target.value })}
+              placeholder="e.g. 9842512143@upi or shop@okaxis"
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-lime-500"
+            />
           </div>
 
           <div>

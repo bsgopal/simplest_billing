@@ -52,7 +52,9 @@ export default function NewBill() {
     notes,
     setNotes,
     calculations,
-    holdCurrentBill
+    holdCurrentBill,
+    heldBills,
+    resumeHeldBill
   } = useBilling();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -425,8 +427,8 @@ export default function NewBill() {
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
         
-        {/* LEFT COLUMN: Catalog, Quick Items & Item Search (lg:col-span-7) */}
-        <div className="lg:col-span-7 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        {/* LEFT COLUMN: Search & All Stocks Dropdown (lg:col-span-5) */}
+        <div className="lg:col-span-5 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-xs overflow-visible">
           
           {/* Top Search & Filter Bar - Unified Combo Format */}
           <div className="p-2.5 sm:p-3 border-b border-slate-100 bg-slate-50/50 space-y-2 sticky top-0 z-30">
@@ -449,36 +451,55 @@ export default function NewBill() {
                   <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
 
-                {/* Combo 2: Search Input with Autocomplete */}
+                {/* Combo 2: Search Input with All Stocks Dropdown */}
                 <div className="relative flex-1 flex items-center min-w-0">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 shrink-0 pointer-events-none" />
+                  <Search 
+                    onClick={() => {
+                      setShowComboDropdown(true);
+                      searchInputRef.current?.focus();
+                    }}
+                    className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 shrink-0 cursor-pointer hover:text-slate-700" 
+                  />
                   <input
                     ref={searchInputRef}
                     type="text"
-                    placeholder="Search product, barcode, code (F2)..."
+                    placeholder="Search or click to browse stocks (F2)..."
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
                       setShowComboDropdown(true);
                     }}
                     onFocus={() => setShowComboDropdown(true)}
+                    onClick={() => setShowComboDropdown(true)}
                     onKeyDown={handleSearchKeyDown}
-                    className="w-full h-9 sm:h-10 pl-8 pr-7 bg-transparent text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-hidden"
+                    className="w-full h-9 sm:h-10 pl-8 pr-14 bg-transparent text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-hidden"
                     autoFocus
                   />
-                  {searchQuery && (
+                  
+                  {/* Right Action Icons in Input: Clear & Dropdown Chevron */}
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery('');
+                          searchInputRef.current?.focus();
+                        }}
+                        className="p-1 text-slate-400 hover:text-slate-700"
+                        title="Clear search"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => {
-                        setSearchQuery('');
-                        setShowComboDropdown(false);
-                        searchInputRef.current?.focus();
-                      }}
-                      className="p-1 text-slate-400 hover:text-slate-700 absolute right-1.5 top-1/2 -translate-y-1/2"
+                      onClick={() => setShowComboDropdown(!showComboDropdown)}
+                      title={showComboDropdown ? "Close dropdown" : "Show all stocks"}
+                      className="p-1 text-slate-400 hover:text-slate-800 rounded transition"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-150 ${showComboDropdown ? 'rotate-180 text-brand-600' : ''}`} />
                     </button>
-                  )}
+                  </div>
                 </div>
 
                 {/* Combo 3: Quick Tool Actions */}
@@ -511,101 +532,145 @@ export default function NewBill() {
                 </div>
               </div>
 
-              {/* Combobox Live Search Autocomplete Dropdown */}
-              {showComboDropdown && searchQuery.trim() && (
+              {/* All Stocks Dropdown (Opens on search click / focus / type) */}
+              {showComboDropdown && (
                 <>
                   <div 
-                    className="fixed inset-0 z-40" 
+                    className="fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-2xs" 
                     onClick={() => setShowComboDropdown(false)} 
                   />
-                  <div className="absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 max-h-64 overflow-y-auto divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100">
-                    <div className="px-3 py-1.5 bg-slate-50 flex items-center justify-between text-[11px] font-bold text-slate-500">
-                      <span>Matching Products ({filteredCatalog.length})</span>
-                      <span className="text-[10px] text-slate-400">Tap to add directly</span>
+                  <div className="absolute left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 max-h-96 sm:max-h-[28rem] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                    {/* Dropdown Header & Category Filter Tabs */}
+                    <div className="p-2.5 bg-slate-50 border-b border-slate-100 flex flex-col gap-2 shrink-0">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                        <span className="flex items-center gap-1.5 text-slate-900 font-extrabold">
+                          <Package className="w-3.5 h-3.5 text-brand-600" />
+                          {searchQuery ? `Search Results (${filteredCatalog.length})` : `All Store Stocks (${filteredCatalog.length})`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowComboDropdown(false)}
+                          className="text-slate-400 hover:text-slate-700 p-0.5 rounded"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Dropdown Category Filter Chips */}
+                      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCategory('All')}
+                          className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-black transition ${
+                            selectedCategory === 'All'
+                              ? 'bg-slate-900 text-white'
+                              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          All ({allItems.length})
+                        </button>
+                        {categories.map((c) => {
+                          const count = allItems.filter(i => i.category === c).length;
+                          return (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => setSelectedCategory(c)}
+                              className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-black transition ${
+                                selectedCategory === c
+                                  ? 'bg-brand-500 text-slate-950'
+                                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              {c} ({count})
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    {filteredCatalog.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-slate-400 font-bold">
-                        No products found matching "{searchQuery}"
-                      </div>
-                    ) : (
-                      filteredCatalog.slice(0, 10).map((item) => (
-                        <div
-                          key={item._id}
-                          onClick={() => {
-                            handleItemClick(item);
-                            setSearchQuery('');
-                            setShowComboDropdown(false);
-                          }}
-                          className="p-2.5 hover:bg-brand-50/70 active:bg-brand-100 cursor-pointer flex items-center justify-between gap-2 transition"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
-                              <span className="truncate">{getItemDisplayName(item)}</span>
-                              {currentLang !== 'en' && item.translations?.[currentLang] && item.name?.trim().toLowerCase() !== getItemDisplayName(item)?.trim().toLowerCase() && (
-                                <span className="text-[10px] text-slate-400 font-normal">({item.name})</span>
-                              )}
-                            </div>
-                            <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
-                              <span className="font-medium text-slate-500">{item.category}</span>
-                              <span>•</span>
-                              <span className="font-semibold text-emerald-700">Stock: {item.currentStock} {item.unit}</span>
-                              {item.barcode && (
-                                <>
-                                  <span>•</span>
-                                  <span>#{item.barcode}</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="text-right shrink-0">
-                            <div className="text-xs sm:text-sm font-black text-brand-700">
-                              ₹{item.sellingPrice.toFixed(2)}
-                            </div>
-                            <div className="text-[9px] font-bold text-slate-400 uppercase">
-                              per {item.unit}
-                            </div>
-                          </div>
+                    {/* Dropdown Products List */}
+                    <div className="flex-1 overflow-y-auto divide-y divide-slate-100 p-1">
+                      {filteredCatalog.length === 0 ? (
+                        <div className="p-6 text-center text-xs text-slate-400 font-bold space-y-1">
+                          <p>No products found matching "{searchQuery}"</p>
+                          <p className="text-[10px] text-slate-400 font-normal">Check spelling or create this product in Products page</p>
                         </div>
-                      ))
-                    )}
+                      ) : (
+                        filteredCatalog.map((item) => (
+                          <div
+                            key={item._id}
+                            onClick={() => {
+                              handleItemClick(item);
+                              setSearchQuery('');
+                              searchInputRef.current?.focus();
+                            }}
+                            className="p-2.5 hover:bg-brand-50/70 active:bg-brand-100 cursor-pointer flex items-center justify-between gap-3 transition rounded-xl"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
+                                <span className="truncate">{getItemDisplayName(item)}</span>
+                                {currentLang !== 'en' && item.translations?.[currentLang] && item.name?.trim().toLowerCase() !== getItemDisplayName(item)?.trim().toLowerCase() && (
+                                  <span className="text-[10px] text-slate-400 font-normal">({item.name})</span>
+                                )}
+                                {item.gstPercent > 0 && (
+                                  <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                                    {item.gstPercent}% GST
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                <span className="font-medium text-slate-500">{item.category}</span>
+                                <span>•</span>
+                                <span className={`font-bold ${
+                                  item.currentStock <= item.lowStockLevel
+                                    ? 'text-red-600'
+                                    : 'text-emerald-700'
+                                }`}>
+                                  Stock: {item.currentStock} {item.unit}
+                                </span>
+                                {item.code && (
+                                  <>
+                                    <span>•</span>
+                                    <span>#{item.code}</span>
+                                  </>
+                                )}
+                                {item.barcode && (
+                                  <>
+                                    <span>•</span>
+                                    <span>Barcode: {item.barcode}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0 flex items-center gap-2">
+                              <div>
+                                <div className="text-xs sm:text-sm font-black text-brand-700">
+                                  ₹{item.sellingPrice.toFixed(2)}
+                                </div>
+                                <div className="text-[9px] font-bold text-slate-400 uppercase">
+                                  per {item.unit}
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                className="px-2.5 py-1 bg-brand-500 hover:bg-brand-600 text-slate-950 font-black rounded-lg text-[10px] shadow-2xs"
+                              >
+                                {item.allowDecimals ? 'Scale' : '+ Add'}
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 </>
               )}
             </div>
 
-            {/* Category Touch Pills (Fast Touch Selection for Tablets & POS) */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 pt-0.5 no-scrollbar">
-              <button
-                type="button"
-                onClick={() => setSelectedCategory('All')}
-                className={`shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-black transition ${
-                  selectedCategory === 'All'
-                    ? 'bg-slate-900 text-white shadow-2xs'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                }`}
-              >
-                All
-              </button>
-              {categories.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setSelectedCategory(c)}
-                  className={`shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-black transition ${
-                    selectedCategory === c
-                      ? 'bg-brand-500 text-slate-950 shadow-2xs'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                  }`}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-
             {/* Quick Item Buttons Strip (One-tap fast billing) */}
-            {quickItems.length > 0 && !searchQuery && (
+            {quickItems.length > 0 && (
               <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 pt-0.5 no-scrollbar border-t border-slate-100 pt-1">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">
                   Quick:
@@ -624,51 +689,89 @@ export default function NewBill() {
             )}
           </div>
 
-          {/* Item Catalog Grid - Limited height on mobile so cart is always reachable */}
-          <div className="flex-1 overflow-y-auto p-2 sm:p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-2.5 content-start max-h-[38vh] lg:max-h-none">
-            {filteredCatalog.length === 0 ? (
-              <div className="col-span-full py-6 sm:py-12 text-center text-slate-400">
-                <Tag className="w-7 h-7 mx-auto mb-1.5 text-slate-300" />
-                <p className="text-xs font-bold text-slate-700">No matching items found</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Check spelling or scan item barcode</p>
-              </div>
-            ) : (
-              filteredCatalog.map((item) => (
-                <div
-                  key={item._id}
-                  onClick={() => handleItemClick(item)}
-                  className="p-2.5 sm:p-3 bg-white hover:bg-slate-50 active:scale-98 border border-slate-200 hover:border-brand-400 rounded-xl shadow-2xs transition flex flex-col justify-between cursor-pointer group"
-                >
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-black text-slate-900 leading-snug line-clamp-2 group-hover:text-brand-700">
-                      {getItemDisplayName(item)}
-                    </h4>
-                    {currentLang !== 'en' && item.translations?.[currentLang] && item.name?.trim().toLowerCase() !== getItemDisplayName(item)?.trim().toLowerCase() && (
-                      <p className="text-[10px] text-slate-400 font-medium truncate">
-                        {item.name}
-                      </p>
-                    )}
-                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
-                      {item.unit} {item.code ? `• #${item.code}` : ''}
-                    </p>
+          {/* Left Column Idle Content (When Dropdown is not open) */}
+          <div className="flex-1 p-3 space-y-3 overflow-y-auto hidden lg:flex lg:flex-col">
+            {/* Quick 1-Click Browse All Stocks Banner */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowComboDropdown(true);
+                searchInputRef.current?.focus();
+              }}
+              className="w-full p-3.5 bg-gradient-to-r from-brand-50 to-lime-50 hover:from-brand-100 hover:to-lime-100 border border-brand-200 rounded-2xl flex items-center justify-between text-left transition shadow-2xs group"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-brand-500 text-slate-950 flex items-center justify-center font-black">
+                  <Package className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-extrabold text-xs text-slate-900 group-hover:text-brand-900">
+                    Browse All Store Stocks
                   </div>
-                  <div className="mt-2 pt-1 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-xs sm:text-sm font-black text-brand-600">
-                      ₹{item.sellingPrice.toFixed(2)}
-                    </span>
-                    {item.allowDecimals ? (
-                      <span className="p-1 bg-amber-50 text-amber-700 rounded-md text-[9px] font-black uppercase">
-                        Scale
-                      </span>
-                    ) : (
-                      <span className="p-1 bg-brand-50 text-brand-700 rounded-md text-[10px] font-black">
-                        + Add
-                      </span>
-                    )}
+                  <div className="text-[10px] text-slate-500 font-medium">
+                    {allItems.length} products available • Click or press F2 to open dropdown
                   </div>
                 </div>
-              ))
+              </div>
+              <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-800" />
+            </button>
+
+            {/* Held Bills (If any) */}
+            {heldBills && heldBills.length > 0 && (
+              <div className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between text-xs font-extrabold text-amber-900">
+                  <span className="flex items-center gap-1.5">
+                    <PauseCircle className="w-4 h-4 text-amber-600" />
+                    Held Bills ({heldBills.length})
+                  </span>
+                  <span className="text-[10px] text-amber-700 font-medium">Click to resume</span>
+                </div>
+                <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                  {heldBills.map((hb) => (
+                    <div
+                      key={hb._id}
+                      onClick={() => resumeHeldBill(hb)}
+                      className="p-2 bg-white rounded-xl border border-amber-200 flex items-center justify-between text-xs cursor-pointer hover:bg-amber-100/50 transition"
+                    >
+                      <div>
+                        <div className="font-bold text-slate-900">{hb.customerName || 'Walk-in'}</div>
+                        <div className="text-[10px] text-slate-400">{hb.items?.length || 0} items • {new Date(hb.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-black text-amber-900">₹{(hb.subTotal || 0).toFixed(2)}</div>
+                        <span className="text-[9px] font-black text-amber-700 uppercase">Resume →</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
+
+            {/* POS Shortcut Reference Card */}
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1.5 text-slate-600 mt-auto">
+              <div className="font-black text-slate-800 text-[11px] uppercase tracking-wider flex items-center gap-1">
+                <Zap className="w-3.5 h-3.5 text-brand-600" />
+                POS Quick Shortcuts
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] font-medium pt-1">
+                <div className="flex items-center gap-1.5">
+                  <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded font-mono font-bold text-[10px] text-slate-800 shadow-2xs">F2</kbd>
+                  <span>Search Stocks</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded font-mono font-bold text-[10px] text-slate-800 shadow-2xs">F10</kbd>
+                  <span>Checkout / Pay</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded font-mono font-bold text-[10px] text-slate-800 shadow-2xs">F8</kbd>
+                  <span>Hold Bill</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded font-mono font-bold text-[10px] text-slate-800 shadow-2xs">Gun</kbd>
+                  <span>Auto-scans</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -807,9 +910,16 @@ export default function NewBill() {
             </div>
 
             {shop?.chargeGst && calculations.taxAmount > 0 && (
-              <div className="flex justify-between text-slate-600">
-                <span>GST:</span>
-                <span>₹{calculations.taxAmount.toFixed(2)}</span>
+              <div className="flex justify-between items-center bg-lime-50/80 px-2.5 py-1.5 rounded-xl border border-lime-200 text-slate-800">
+                <div>
+                  <span className="font-extrabold text-xs">GST Tax: </span>
+                  <span className="text-[10px] text-slate-500 font-semibold">
+                    (CGST ₹{calculations.cgstAmount.toFixed(2)} + SGST ₹{calculations.sgstAmount.toFixed(2)})
+                  </span>
+                </div>
+                <span className="font-black text-xs text-lime-900">
+                  {shop?.priceIncludesGst ? '(Incl.) ' : '+ '}₹{calculations.taxAmount.toFixed(2)}
+                </span>
               </div>
             )}
 

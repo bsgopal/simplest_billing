@@ -1363,7 +1363,7 @@ export default function StockInward() {
                         </span>
                         <h4 className="text-sm font-black text-slate-900">
                           {getItemDisplayName(selectedItem)}
-                          {currentLang !== 'en' && selectedItem.translations?.[currentLang] && (
+                          {currentLang !== 'en' && selectedItem.translations?.[currentLang] && selectedItem.name?.trim().toLowerCase() !== getItemDisplayName(selectedItem).trim().toLowerCase() && (
                             <span className="text-xs font-normal text-slate-500 ml-1.5">({selectedItem.name})</span>
                           )}
                         </h4>
@@ -1483,7 +1483,7 @@ export default function StockInward() {
           {/* TAB 1: Weight & Daily Rates Inward Panel (Vegetables, Fruits, Loose Grains, Custom Quantities) */}
           {inwardTab === 'direct' && (
             <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 gap-2">
                 <div>
                   <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
                     <Scale className="w-4 h-4 text-brand-600" />
@@ -1498,12 +1498,12 @@ export default function StockInward() {
                   </p>
                 </div>
                 {selectedItem && (
-                  <span className={`px-2.5 py-1 rounded-lg text-xs font-bold font-mono border ${
+                  <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border shrink-0 ${
                     isDecimalUnit(selectedItem.unit, selectedItem.allowDecimals)
                       ? 'bg-amber-50 border-amber-300 text-amber-900'
                       : 'bg-brand-50 border-brand-300 text-brand-900'
                   }`}>
-                    Unit: {selectedItem.unit} {isDecimalUnit(selectedItem.unit, selectedItem.allowDecimals) ? '(Weight/Decimal)' : '(Packets/Count)'}
+                    {selectedItem.unit} • {isDecimalUnit(selectedItem.unit, selectedItem.allowDecimals) ? 'Decimals allowed' : 'Whole units'}
                   </span>
                 )}
               </div>
@@ -1517,14 +1517,14 @@ export default function StockInward() {
                   </p>
                 </div>
               ) : (
-                <form onSubmit={handleDirectInward} className="space-y-4">
+                <form onSubmit={handleDirectInward} className="space-y-3.5">
                   {/* Selected Product Banner */}
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
                     <div>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Selected Product</span>
                       <h4 className="text-base font-black text-slate-900 mt-0.5">
                         {getItemDisplayName(selectedItem)}
-                        {currentLang !== 'en' && selectedItem.translations?.[currentLang] && (
+                        {currentLang !== 'en' && selectedItem.translations?.[currentLang] && selectedItem.name?.trim().toLowerCase() !== getItemDisplayName(selectedItem).trim().toLowerCase() && (
                           <span className="text-xs font-normal text-slate-500 ml-1.5">({selectedItem.name})</span>
                         )}
                       </h4>
@@ -1537,15 +1537,16 @@ export default function StockInward() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {/* Quantity Inwarded */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  {/* 3 Perfectly Aligned Input Columns */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
+                    {/* Column 1: Quantity Inwarded */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between h-5">
+                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                           Quantity Purchased *
                         </label>
-                        <span className="text-[10px] font-bold text-slate-400">
-                          {isDecimalUnit(selectedItem.unit, selectedItem.allowDecimals) ? 'Decimals allowed' : 'Whole number'}
+                        <span className="text-[10px] font-semibold text-slate-400">
+                          {isDecimalUnit(selectedItem.unit, selectedItem.allowDecimals) ? 'kg / g' : 'Packets'}
                         </span>
                       </div>
                       <div className="relative">
@@ -1558,69 +1559,26 @@ export default function StockInward() {
                           value={directQty}
                           onChange={(e) => setDirectQty(e.target.value)}
                           placeholder={isDecimalUnit(selectedItem.unit, selectedItem.allowDecimals) ? 'e.g. 25.5' : 'e.g. 5'}
-                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono font-black text-base focus:outline-none focus:border-brand-500 shadow-2xs"
+                          className="w-full h-11 pl-3.5 pr-12 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono font-bold text-base focus:outline-none focus:border-brand-500 shadow-2xs"
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 uppercase">
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 uppercase pointer-events-none">
                           {selectedItem.unit}
                         </span>
                       </div>
-
-                      {/* Quick Add Increment Chips */}
-                      <div className="flex items-center flex-wrap gap-1 mt-1.5">
-                        <span className="text-[10px] font-bold text-slate-400 mr-0.5">Quick:</span>
-                        {isDecimalUnit(selectedItem.unit, selectedItem.allowDecimals) ? (
-                          <>
-                            {[0.25, 0.5, 1, 5, 10, 25, 50].map((w) => (
-                              <button
-                                key={w}
-                                type="button"
-                                onClick={() => {
-                                  const current = parseFloat(directQty) || 0;
-                                  setDirectQty(String(parseFloat((current + w).toFixed(3))));
-                                }}
-                                className="px-2 py-0.5 bg-slate-100 hover:bg-brand-100 text-slate-700 hover:text-brand-900 text-[10px] font-bold rounded-md border border-slate-200 transition active:scale-95"
-                              >
-                                +{w >= 1 ? `${w}kg` : `${w * 1000}g`}
-                              </button>
-                            ))}
-                          </>
-                        ) : (
-                          <>
-                            {[1, 5, 10, 20, 50].map((cnt) => (
-                              <button
-                                key={cnt}
-                                type="button"
-                                onClick={() => {
-                                  const current = parseInt(directQty, 10) || 0;
-                                  setDirectQty(String(current + cnt));
-                                }}
-                                className="px-2 py-0.5 bg-slate-100 hover:bg-brand-100 text-slate-700 hover:text-brand-900 text-[10px] font-bold rounded-md border border-slate-200 transition active:scale-95"
-                              >
-                                +{cnt}
-                              </button>
-                            ))}
-                          </>
-                        )}
-                        {directQty && (
-                          <button
-                            type="button"
-                            onClick={() => setDirectQty('')}
-                            className="px-1.5 py-0.5 text-slate-400 hover:text-red-500 text-[10px] font-bold"
-                            title="Clear"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </div>
                     </div>
 
-                    {/* Purchase Cost Price */}
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                        Wholesale Cost (₹/{selectedItem.unit})
-                      </label>
+                    {/* Column 2: Wholesale Cost Price */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between h-5">
+                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Wholesale Cost
+                        </label>
+                        <span className="text-[10px] font-semibold text-slate-400">
+                          ₹/{selectedItem.unit}
+                        </span>
+                      </div>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400 pointer-events-none">₹</span>
                         <input
                           type="number"
                           step="0.01"
@@ -1628,18 +1586,23 @@ export default function StockInward() {
                           value={costPrice}
                           onChange={(e) => setCostPrice(e.target.value)}
                           placeholder={String(selectedItem.purchasePrice || '0.00')}
-                          className="w-full pl-7 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono font-bold text-base focus:outline-none focus:border-brand-500 shadow-2xs"
+                          className="w-full h-11 pl-8 pr-3.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono font-bold text-base focus:outline-none focus:border-brand-500 shadow-2xs"
                         />
                       </div>
                     </div>
 
-                    {/* Today's Selling Rate */}
-                    <div>
-                      <label className="block text-xs font-black text-brand-800 uppercase tracking-wider mb-1">
-                        Today's Selling Rate (₹/{selectedItem.unit}) *
-                      </label>
+                    {/* Column 3: Today's Selling Rate */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between h-5">
+                        <label className="text-xs font-black text-brand-900 uppercase tracking-wider">
+                          Today's Selling Rate *
+                        </label>
+                        <span className="text-[10px] font-semibold text-brand-700">
+                          ₹/{selectedItem.unit}
+                        </span>
+                      </div>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-brand-600">₹</span>
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-brand-700 pointer-events-none">₹</span>
                         <input
                           type="number"
                           step="0.01"
@@ -1648,36 +1611,123 @@ export default function StockInward() {
                           value={sellingPrice}
                           onChange={(e) => setSellingPrice(e.target.value)}
                           placeholder={String(selectedItem.sellingPrice || '0.00')}
-                          className="w-full pl-7 pr-3 py-2 bg-brand-50/50 border-2 border-brand-500 rounded-xl text-brand-950 font-mono font-black text-base focus:outline-none focus:border-brand-600 shadow-2xs"
+                          className="w-full h-11 pl-8 pr-3.5 bg-brand-50/40 border-2 border-brand-500 rounded-xl text-brand-950 font-mono font-black text-base focus:outline-none focus:border-brand-600 shadow-2xs"
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Calculations Preview */}
+                  {/* Dedicated Quick Presets & Margin Controls Bar */}
+                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+                    {/* Quantity Quick Presets */}
+                    <div className="flex items-center flex-wrap gap-1.5">
+                      <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wide mr-1 shrink-0">
+                        ⚡ Quick Add:
+                      </span>
+                      {isDecimalUnit(selectedItem.unit, selectedItem.allowDecimals) ? (
+                        <>
+                          {[0.25, 0.5, 1, 2, 5, 10, 25, 50].map((w) => (
+                            <button
+                              key={w}
+                              type="button"
+                              onClick={() => {
+                                const current = parseFloat(directQty) || 0;
+                                setDirectQty(String(parseFloat((current + w).toFixed(3))));
+                              }}
+                              className="px-2.5 py-1 bg-white hover:bg-brand-50 hover:border-brand-400 text-slate-700 hover:text-brand-900 text-xs font-bold rounded-lg border border-slate-200 shadow-2xs transition active:scale-95"
+                            >
+                              +{w >= 1 ? `${w} kg` : `${w * 1000}g`}
+                            </button>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          {[1, 2, 5, 10, 20, 50, 100].map((cnt) => (
+                            <button
+                              key={cnt}
+                              type="button"
+                              onClick={() => {
+                                const current = parseInt(directQty, 10) || 0;
+                                setDirectQty(String(current + cnt));
+                              }}
+                              className="px-2.5 py-1 bg-white hover:bg-brand-50 hover:border-brand-400 text-slate-700 hover:text-brand-900 text-xs font-bold rounded-lg border border-slate-200 shadow-2xs transition active:scale-95"
+                            >
+                              +{cnt} {selectedItem.unit}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {directQty && (
+                        <button
+                          type="button"
+                          onClick={() => setDirectQty('')}
+                          className="px-2 py-1 text-red-600 hover:bg-red-50 rounded-lg text-xs font-bold transition ml-1"
+                          title="Clear quantity"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Quick Profit Margin Presets */}
+                    <div className="flex items-center flex-wrap gap-1.5 md:border-l md:border-slate-200 md:pl-3">
+                      <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wide mr-1 shrink-0">
+                        Margin:
+                      </span>
+                      {[15, 20, 25, 30, 40].map((pct) => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => {
+                            const cost = parseFloat(costPrice) || selectedItem.purchasePrice || 0;
+                            if (!cost || cost <= 0) {
+                              toast.warning('Please enter a Wholesale Cost first to calculate margin');
+                              return;
+                            }
+                            const calc = Math.ceil(cost * (1 + pct / 100));
+                            setSellingPrice(String(calc));
+                          }}
+                          className="px-2 py-1 bg-white hover:bg-amber-50 hover:border-amber-400 text-slate-700 hover:text-amber-900 text-xs font-bold rounded-lg border border-slate-200 shadow-2xs transition active:scale-95"
+                          title={`Set selling rate with +${pct}% profit margin`}
+                        >
+                          +{pct}%
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Calculations Summary: 3 Balanced Metric Cards */}
                   {directQty && (
-                    <div className="p-3 bg-brand-50 border border-brand-200 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs animate-in fade-in">
-                      <div>
-                        <span className="text-slate-500 font-medium">Total Inward Cost: </span>
-                        <strong className="text-slate-900 font-mono font-black">
-                          ₹{((parseFloat(directQty) || 0) * (parseFloat(costPrice) || 0)).toFixed(2)}
-                        </strong>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3.5 bg-brand-50/70 border border-brand-200 rounded-xl animate-in fade-in duration-150">
+                      <div className="bg-white/80 p-2.5 rounded-lg border border-brand-200/60">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                          Total Inward Cost
+                        </span>
+                        <span className="text-base font-black font-mono text-slate-900 mt-0.5 block">
+                          ₹{((parseFloat(directQty) || 0) * (parseFloat(costPrice) || selectedItem.purchasePrice || 0)).toFixed(2)}
+                        </span>
                       </div>
-                      <div>
-                        <span className="text-slate-500 font-medium">New Total Stock: </span>
-                        <strong className="text-brand-800 font-mono font-black">
+
+                      <div className="bg-white/80 p-2.5 rounded-lg border border-brand-200/60">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                          New Total Stock
+                        </span>
+                        <span className="text-base font-black font-mono text-brand-800 mt-0.5 block">
                           {formatQuantity(
                             (parseFloat(selectedItem.currentStock || 0) + (parseFloat(directQty) || 0)),
                             selectedItem.unit,
                             selectedItem.allowDecimals
                           )}
-                        </strong>
+                        </span>
                       </div>
-                      <div>
-                        <span className="text-slate-500 font-medium">Selling Rate Updated to: </span>
-                        <strong className="text-brand-900 font-mono font-black">
+
+                      <div className="bg-white/80 p-2.5 rounded-lg border border-brand-200/60">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                          Updated Selling Rate
+                        </span>
+                        <span className="text-base font-black font-mono text-slate-900 mt-0.5 block">
                           ₹{parseFloat(sellingPrice || selectedItem.sellingPrice || 0).toFixed(2)} / {selectedItem.unit}
-                        </strong>
+                        </span>
                       </div>
                     </div>
                   )}
@@ -1688,7 +1738,7 @@ export default function StockInward() {
                       type="button"
                       onClick={handleStageDirectInward}
                       disabled={!directQty}
-                      className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition active:scale-98 disabled:opacity-50"
+                      className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition active:scale-98 disabled:opacity-50 cursor-pointer"
                     >
                       + Stage to Table Below
                     </button>
@@ -1696,10 +1746,10 @@ export default function StockInward() {
                     <button
                       type="submit"
                       disabled={submitting || !directQty}
-                      className="w-full sm:w-auto px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-slate-950 font-black rounded-xl text-xs sm:text-sm transition shadow-xs flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
+                      className="w-full sm:w-auto px-6 py-2.5 bg-brand-500 hover:bg-brand-400 text-slate-950 font-black rounded-xl text-xs sm:text-sm transition shadow-xs flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50 cursor-pointer"
                     >
-                      <Check className="w-4 h-4" />
-                      <span>{submitting ? 'Updating...' : `+ Inward ${directQty || '0'} ${selectedItem.unit} Directly`}</span>
+                      <Check className="w-4 h-4 stroke-[3]" />
+                      <span>{submitting ? 'Updating...' : `Inward ${directQty || '0'} ${selectedItem.unit} to Inventory`}</span>
                     </button>
                   </div>
                 </form>

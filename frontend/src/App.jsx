@@ -49,7 +49,7 @@ function ProtectedLayout() {
       <Header />
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 p-2 sm:p-3.5 pb-20 md:pb-4 overflow-y-auto max-w-7xl mx-auto w-full">
+        <main className="flex-1 p-2 sm:p-3.5 pb-14 md:pb-4 overflow-y-auto max-w-7xl mx-auto w-full">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/billing" element={<NewBill />} />

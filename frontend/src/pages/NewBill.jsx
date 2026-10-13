@@ -30,7 +30,8 @@ import {
   Sparkles,
   Zap,
   Save,
-  Check
+  Check,
+  ChevronDown
 } from 'lucide-react';
 import CameraBarcodeScanner from '../components/CameraBarcodeScanner';
 
@@ -55,6 +56,7 @@ export default function NewBill() {
   } = useBilling();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [showComboDropdown, setShowComboDropdown] = useState(false);
   const [allItems, setAllItems] = useState([]);
   const [quickItems, setQuickItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -390,7 +392,7 @@ export default function NewBill() {
   };
 
   return (
-    <div className="h-[calc(100vh-80px)] flex flex-col relative">
+    <div className="flex flex-col relative lg:h-[calc(100vh-80px)] pb-1">
       
       {/* Toast Notification Container (Fixed Top Right) */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md w-full pointer-events-none px-3">
@@ -426,64 +428,155 @@ export default function NewBill() {
         {/* LEFT COLUMN: Catalog, Quick Items & Item Search (lg:col-span-7) */}
         <div className="lg:col-span-7 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
           
-          {/* Top Search & Filter Bar */}
-          <div className="p-3 border-b border-slate-100 bg-slate-50/50 space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Scan barcode or type item name, code (F2)..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={handleSearchKeyDown}
-                  className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-brand-500 shadow-2xs"
-                  autoFocus
-                />
+          {/* Top Search & Filter Bar - Unified Combo Format */}
+          <div className="p-2.5 sm:p-3 border-b border-slate-100 bg-slate-50/50 space-y-2 sticky top-0 z-30">
+            {/* Combo Input Group */}
+            <div className="relative">
+              <div className="flex items-center bg-white border border-slate-300 rounded-xl shadow-2xs focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500 transition overflow-hidden">
+                
+                {/* Combo 1: Category Selector Dropdown */}
+                <div className="relative border-r border-slate-200 bg-slate-50/80 shrink-0">
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="h-9 sm:h-10 pl-2 pr-6 bg-transparent text-xs font-black text-slate-800 focus:outline-hidden cursor-pointer appearance-none"
+                  >
+                    <option value="All">All</option>
+                    {categories.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+
+                {/* Combo 2: Search Input with Autocomplete */}
+                <div className="relative flex-1 flex items-center min-w-0">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 shrink-0 pointer-events-none" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder="Search product, barcode, code (F2)..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setShowComboDropdown(true);
+                    }}
+                    onFocus={() => setShowComboDropdown(true)}
+                    onKeyDown={handleSearchKeyDown}
+                    className="w-full h-9 sm:h-10 pl-8 pr-7 bg-transparent text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-hidden"
+                    autoFocus
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setShowComboDropdown(false);
+                        searchInputRef.current?.focus();
+                      }}
+                      className="p-1 text-slate-400 hover:text-slate-700 absolute right-1.5 top-1/2 -translate-y-1/2"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Combo 3: Quick Tool Actions */}
+                <div className="flex items-center gap-0.5 pr-1 bg-slate-50/50 border-l border-slate-200 shrink-0">
+                  {/* Camera Barcode Scanner Button */}
+                  <button
+                    type="button"
+                    onClick={() => setCameraScanOpen(true)}
+                    title="Scan barcode with camera (Mobile / Laptop webcam)"
+                    className="h-8 sm:h-9 px-2 text-slate-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg text-xs font-bold flex items-center gap-1 transition"
+                  >
+                    <Camera className="w-3.5 h-3.5 text-brand-600" />
+                    <span className="hidden sm:inline">Camera</span>
+                  </button>
+
+                  {/* Quick Daily Rates Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickRateCategory(selectedCategory || 'All');
+                      setQuickRateEdits({});
+                      setQuickRateModalOpen(true);
+                    }}
+                    title="Change today's daily product rates without leaving counter"
+                    className="h-8 sm:h-9 px-2 text-amber-700 hover:bg-amber-50 rounded-lg text-xs font-bold flex items-center gap-1 transition"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-amber-600" />
+                    <span className="hidden sm:inline">Rates</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Quick Daily Rates Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  setQuickRateCategory(selectedCategory || 'All');
-                  setQuickRateEdits({});
-                  setQuickRateModalOpen(true);
-                }}
-                title="Change today's daily product rates without leaving billing counter"
-                className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 font-extrabold rounded-xl text-xs transition shadow-2xs shrink-0 active:scale-95"
-              >
-                <Zap className="w-4 h-4 text-amber-600" />
-                <span className="hidden sm:inline">Today's Rates</span>
-              </button>
+              {/* Combobox Live Search Autocomplete Dropdown */}
+              {showComboDropdown && searchQuery.trim() && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setShowComboDropdown(false)} 
+                  />
+                  <div className="absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 max-h-64 overflow-y-auto divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100">
+                    <div className="px-3 py-1.5 bg-slate-50 flex items-center justify-between text-[11px] font-bold text-slate-500">
+                      <span>Matching Products ({filteredCatalog.length})</span>
+                      <span className="text-[10px] text-slate-400">Tap to add directly</span>
+                    </div>
 
-              {/* Camera Barcode Scanner Button */}
-              <button
-                type="button"
-                onClick={() => setCameraScanOpen(true)}
-                title="Scan barcode with camera (Mobile / Laptop webcam)"
-                className="flex items-center gap-1.5 px-3 py-2 bg-brand-50 hover:bg-brand-100 text-brand-900 border border-brand-300 font-extrabold rounded-xl text-xs transition shadow-2xs shrink-0 active:scale-95"
-              >
-                <Camera className="w-4 h-4 text-brand-600" />
-                <span className="hidden sm:inline">Camera Scan</span>
-              </button>
+                    {filteredCatalog.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-400 font-bold">
+                        No products found matching "{searchQuery}"
+                      </div>
+                    ) : (
+                      filteredCatalog.slice(0, 10).map((item) => (
+                        <div
+                          key={item._id}
+                          onClick={() => {
+                            handleItemClick(item);
+                            setSearchQuery('');
+                            setShowComboDropdown(false);
+                          }}
+                          className="p-2.5 hover:bg-brand-50/70 active:bg-brand-100 cursor-pointer flex items-center justify-between gap-2 transition"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
+                              <span className="truncate">{getItemDisplayName(item)}</span>
+                              {currentLang !== 'en' && item.translations?.[currentLang] && item.name?.trim().toLowerCase() !== getItemDisplayName(item)?.trim().toLowerCase() && (
+                                <span className="text-[10px] text-slate-400 font-normal">({item.name})</span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                              <span className="font-medium text-slate-500">{item.category}</span>
+                              <span>•</span>
+                              <span className="font-semibold text-emerald-700">Stock: {item.currentStock} {item.unit}</span>
+                              {item.barcode && (
+                                <>
+                                  <span>•</span>
+                                  <span>#{item.barcode}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
 
-              {/* Category Dropdown */}
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-2.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-700 focus:outline-hidden focus:border-brand-500"
-              >
-                <option value="All">All Categories</option>
-                {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+                          <div className="text-right shrink-0">
+                            <div className="text-xs sm:text-sm font-black text-brand-700">
+                              ₹{item.sellingPrice.toFixed(2)}
+                            </div>
+                            <div className="text-[9px] font-bold text-slate-400 uppercase">
+                              per {item.unit}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Category Touch Pills (Fast Touch Selection for Tablets & POS) */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 pt-0.5 no-scrollbar">
               <button
                 type="button"
                 onClick={() => setSelectedCategory('All')}
@@ -513,7 +606,7 @@ export default function NewBill() {
 
             {/* Quick Item Buttons Strip (One-tap fast billing) */}
             {quickItems.length > 0 && !searchQuery && (
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar border-t border-slate-100 pt-1.5">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 pt-0.5 no-scrollbar border-t border-slate-100 pt-1">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">
                   Quick:
                 </span>
@@ -531,11 +624,11 @@ export default function NewBill() {
             )}
           </div>
 
-          {/* Item Catalog Grid */}
-          <div className="flex-1 overflow-y-auto p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-2.5 content-start">
+          {/* Item Catalog Grid - Limited height on mobile so cart is always reachable */}
+          <div className="flex-1 overflow-y-auto p-2 sm:p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-2.5 content-start max-h-[38vh] lg:max-h-none">
             {filteredCatalog.length === 0 ? (
-              <div className="col-span-full py-12 text-center text-slate-400">
-                <Tag className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+              <div className="col-span-full py-6 sm:py-12 text-center text-slate-400">
+                <Tag className="w-7 h-7 mx-auto mb-1.5 text-slate-300" />
                 <p className="text-xs font-bold text-slate-700">No matching items found</p>
                 <p className="text-[11px] text-slate-400 mt-0.5">Check spelling or scan item barcode</p>
               </div>
@@ -626,10 +719,10 @@ export default function NewBill() {
           </div>
 
           {/* Cart Items List */}
-          <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-1.5 divide-y divide-slate-100">
+          <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-1.5 divide-y divide-slate-100 max-h-[35vh] lg:max-h-none">
             {cartItems.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400 py-12">
-                <Receipt className="w-10 h-10 text-slate-300 mb-2 stroke-1" />
+              <div className="flex flex-col items-center justify-center text-slate-400 py-5 sm:py-12">
+                <Receipt className="w-8 h-8 sm:w-10 sm:h-10 text-slate-300 mb-1.5 stroke-1" />
                 <p className="text-xs font-bold text-slate-500">Bill cart is empty</p>
                 <p className="text-[11px]">Click any item from the left catalog to add</p>
               </div>

@@ -87,7 +87,7 @@ export default function BottomNav() {
   return (
     <>
       {/* Mobile Bottom Navigation Bar (md:hidden) - Flat, Non-overlapping, Clean */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 z-40 px-2 py-1 flex items-center justify-around shadow-md safe-area-pb">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 z-40 px-1 py-1 flex items-center justify-between gap-0.5 shadow-md safe-area-pb">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
@@ -97,10 +97,10 @@ export default function BottomNav() {
               <button
                 key={item.label}
                 onClick={() => handleNavClick(item.path)}
-                className="flex flex-col items-center justify-center px-3 py-1 rounded-xl bg-brand-500 hover:bg-brand-600 text-slate-950 font-black shadow-xs transition active:scale-95"
+                className="flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-1 rounded-xl bg-brand-500 hover:bg-brand-600 text-slate-950 font-black shadow-xs transition active:scale-95"
               >
-                <Icon className="w-4 h-4" />
-                <span className="text-[10px] font-black leading-tight mt-0.5">{item.label}</span>
+                <Icon className="w-4 h-4 shrink-0" />
+                <span className="text-[9px] sm:text-[10px] font-black leading-none mt-1 truncate max-w-full">{item.label}</span>
               </button>
             );
           }
@@ -109,12 +109,12 @@ export default function BottomNav() {
             <button
               key={item.label}
               onClick={() => handleNavClick(item.path)}
-              className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition ${
+              className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition ${
                 isActive ? 'text-brand-700 font-extrabold' : 'text-slate-500 hover:text-slate-900 font-medium'
               }`}
             >
-              <Icon className="w-4 h-4" />
-              <span className="text-[10px] leading-tight mt-0.5">{item.label}</span>
+              <Icon className="w-4 h-4 shrink-0" />
+              <span className="text-[9px] sm:text-[10px] leading-none mt-1 truncate max-w-full">{item.label}</span>
             </button>
           );
         })}
@@ -122,12 +122,12 @@ export default function BottomNav() {
         {/* More Menu Toggle */}
         <button
           onClick={() => setDrawerOpen(true)}
-          className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition ${
+          className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition ${
             drawerOpen ? 'text-brand-700 font-bold' : 'text-slate-500 hover:text-slate-900 font-medium'
           }`}
         >
-          <Menu className="w-4 h-4" />
-          <span className="text-[10px] leading-tight mt-0.5">Menu</span>
+          <Menu className="w-4 h-4 shrink-0" />
+          <span className="text-[9px] sm:text-[10px] leading-none mt-1 truncate max-w-full">Menu</span>
         </button>
       </nav>
 

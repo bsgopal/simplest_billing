@@ -292,30 +292,30 @@ export default function Items() {
           <p className="text-xs text-slate-500 font-medium">Manage product catalogue, selling prices, categories, and stock</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 sm:flex sm:items-center sm:flex-wrap gap-2 w-full sm:w-auto">
           <Link
             to="/stock"
-            className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-brand-50 hover:bg-brand-100 text-brand-900 border border-brand-300 font-extrabold rounded-xl text-xs transition shadow-2xs active:scale-98"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-50 hover:bg-brand-100 text-brand-900 border border-brand-300 font-extrabold rounded-xl text-xs transition shadow-2xs active:scale-98"
           >
-            <Barcode className="w-4 h-4 text-brand-600" />
+            <Barcode className="w-4 h-4 text-brand-600 shrink-0" />
             <span>Stock Inward</span>
           </Link>
 
           <button
             type="button"
             onClick={() => setCheatSheetModalOpen(true)}
-            className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 font-extrabold rounded-xl text-xs transition shadow-2xs active:scale-98"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 font-extrabold rounded-xl text-xs transition shadow-2xs active:scale-98"
             title="Generate & print laminated barcode cheat sheet for Dal, Spices & loose items"
           >
-            <Printer className="w-4 h-4 text-amber-700" />
-            <span>Barcode Cheat Sheet</span>
+            <Printer className="w-4 h-4 text-amber-700 shrink-0" />
+            <span>Cheat Sheet</span>
           </button>
 
           <Link
             to="/categories"
-            className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold rounded-xl text-xs transition active:scale-98"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold rounded-xl text-xs transition active:scale-98"
           >
-            <Layers className="w-4 h-4 text-slate-600" />
+            <Layers className="w-4 h-4 text-slate-600 shrink-0" />
             <span>Categories</span>
           </Link>
           
@@ -323,7 +323,7 @@ export default function Items() {
             onClick={handleOpenAdd}
             className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-slate-950 font-black rounded-xl text-xs transition shadow-xs active:scale-98"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 shrink-0" />
             <span>+ Add New Product</span>
           </button>
         </div>
@@ -357,7 +357,7 @@ export default function Items() {
         </div>
 
         {/* Total count badge */}
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 shrink-0 self-end md:self-auto">
+        <div className="flex items-center justify-between sm:justify-start gap-2 px-3 py-1.5 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 shrink-0">
           <span>Total Products:</span>
           <span className="font-black text-slate-900 bg-white px-2 py-0.5 rounded-lg border border-slate-200 shadow-2xs">
             {items.length}

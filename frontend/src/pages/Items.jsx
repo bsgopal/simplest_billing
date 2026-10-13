@@ -701,7 +701,8 @@ export default function Items() {
                 <label className="text-xs font-bold text-slate-700 block mb-1">Quantity ({adjustItem.unit}) *</label>
                 <input
                   type="number"
-                  step="0.05"
+                  step="any"
+                  min="0.001"
                   required
                   placeholder="Quantity"
                   value={adjustQty}

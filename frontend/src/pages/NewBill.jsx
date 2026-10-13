@@ -26,7 +26,11 @@ import {
   Globe,
   AlertCircle,
   AlertTriangle,
-  X
+  X,
+  Sparkles,
+  Zap,
+  Save,
+  Check
 } from 'lucide-react';
 import CameraBarcodeScanner from '../components/CameraBarcodeScanner';
 
@@ -74,6 +78,10 @@ export default function NewBill() {
   const [newCustName, setNewCustName] = useState('');
   const [newCustPhone, setNewCustPhone] = useState('');
   const [cameraScanOpen, setCameraScanOpen] = useState(false);
+  const [quickRateModalOpen, setQuickRateModalOpen] = useState(false);
+  const [quickRateCategory, setQuickRateCategory] = useState('Vegetables');
+  const [quickRateEdits, setQuickRateEdits] = useState({});
+  const [savingQuickRates, setSavingQuickRates] = useState(false);
 
   const searchInputRef = useRef(null);
   const barcodeBufferRef = useRef('');
@@ -208,6 +216,49 @@ export default function NewBill() {
     };
     fetchData();
   }, []);
+
+  const reloadItems = async () => {
+    try {
+      const res = await axios.get('/api/items?active=true');
+      setAllItems(res.data || []);
+    } catch (e) {
+      console.error('Error reloading items:', e);
+    }
+  };
+
+  const handleSaveQuickRates = async () => {
+    const itemIds = Object.keys(quickRateEdits);
+    const updates = [];
+    for (const id of itemIds) {
+      const newSell = quickRateEdits[id];
+      if (newSell !== undefined && newSell !== '') {
+        updates.push({
+          itemId: id,
+          sellingPrice: parseFloat(newSell) || 0
+        });
+      }
+    }
+
+    if (updates.length === 0) {
+      setQuickRateModalOpen(false);
+      return;
+    }
+
+    setSavingQuickRates(true);
+    try {
+      await axios.post('/api/items/daily-rate-sheet', { updates });
+      showToast(`Updated rates for ${updates.length} items!`, 'success');
+      await reloadItems();
+      setQuickRateEdits({});
+      setQuickRateModalOpen(false);
+    } catch (err) {
+      console.error('Error saving quick rates:', err);
+      showToast(err.response?.data?.message || 'Failed to update rates', 'error');
+    } finally {
+      setSavingQuickRates(false);
+    }
+  };
+
 
   // Filter items
   const filteredCatalog = allItems.filter(item => {
@@ -387,6 +438,21 @@ export default function NewBill() {
                   autoFocus
                 />
               </div>
+
+              {/* Quick Daily Rates Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickRateCategory(selectedCategory !== 'All' ? selectedCategory : 'Vegetables');
+                  setQuickRateEdits({});
+                  setQuickRateModalOpen(true);
+                }}
+                title="Change today's vegetable/mandi rates without leaving billing counter"
+                className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 font-extrabold rounded-xl text-xs transition shadow-2xs shrink-0 active:scale-95"
+              >
+                <Zap className="w-4 h-4 text-amber-600" />
+                <span className="hidden sm:inline">Today's Rates</span>
+              </button>
 
               {/* Camera Barcode Scanner Button */}
               <button
@@ -792,6 +858,137 @@ export default function NewBill() {
         continuous={true}
         title="Fast Camera Barcode Billing Scanner"
       />
+
+      {/* Quick Daily Rates Modal (Counter-side instant price revision) */}
+      {quickRateModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-4 sm:p-5 shadow-2xl border border-slate-200 flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-amber-100 rounded-xl text-amber-800">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 text-sm sm:text-base">
+                    Today's Rate Sheet (Spot Revision)
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Instantly update selling rates for vegetables or products right from the counter.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickRateModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Category filter pills in modal */}
+            <div className="flex items-center gap-1.5 overflow-x-auto py-2.5 no-scrollbar shrink-0">
+              <button
+                type="button"
+                onClick={() => setQuickRateCategory('All')}
+                className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                  quickRateCategory === 'All'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                All
+              </button>
+              {categories.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setQuickRateCategory(c)}
+                  className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                    quickRateCategory === c
+                      ? 'bg-amber-500 text-slate-950 shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+
+            {/* Editable items list */}
+            <div className="flex-1 overflow-y-auto divide-y divide-slate-100 pr-1">
+              {allItems
+                .filter(i => quickRateCategory === 'All' || i.category === quickRateCategory)
+                .map((it) => {
+                  const currentRateVal = quickRateEdits[it._id] !== undefined ? quickRateEdits[it._id] : String(it.sellingPrice);
+                  const isModified = quickRateEdits[it._id] !== undefined && parseFloat(quickRateEdits[it._id]) !== it.sellingPrice;
+
+                  return (
+                    <div key={it._id} className="py-2.5 flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-extrabold text-xs sm:text-sm text-slate-900 truncate">
+                          {getItemDisplayName(it)}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          {it.unit} • Stock: {it.currentStock}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Rate (₹)</span>
+                        </div>
+                        <div className="relative w-24 sm:w-28">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-black text-amber-700">₹</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            value={currentRateVal}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setQuickRateEdits(prev => ({ ...prev, [it._id]: val }));
+                            }}
+                            className={`w-full pl-6 pr-2 py-1.5 rounded-xl text-xs sm:text-sm font-mono font-black text-center focus:outline-none transition ${
+                              isModified
+                                ? 'bg-amber-50 border-2 border-amber-500 text-amber-950'
+                                : 'bg-slate-50 border border-slate-300 text-slate-900 focus:border-amber-500'
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 shrink-0">
+              <span className="text-xs text-slate-500 font-bold">
+                {Object.keys(quickRateEdits).length} item(s) modified
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickRateModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveQuickRates}
+                  disabled={savingQuickRates}
+                  className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs shadow-xs flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{savingQuickRates ? 'Saving...' : 'Apply Rates Now'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

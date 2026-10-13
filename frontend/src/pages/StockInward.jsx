@@ -212,6 +212,20 @@ export default function StockInward() {
     }));
   };
 
+  // Daily Rate Sheet: Auto-calculate Selling Rate from Cost Price using Margin % (e.g. 20%, 25%, 30%)
+  const handleApplyMargin = (itemId, marginPercent) => {
+    const original = allItems.find(i => i._id === itemId);
+    if (!original) return;
+    const row = rateSheetRows[itemId] || {};
+    const cost = row.costPrice !== undefined && row.costPrice !== '' ? parseFloat(row.costPrice) : (original.purchasePrice || 0);
+    if (!cost || cost <= 0) {
+      toast.warning('Please enter a Cost Price first to calculate margin');
+      return;
+    }
+    const computedSell = Math.ceil(cost * (1 + marginPercent / 100)); // Round up to nearest integer for clean retail pricing
+    handleSheetRowChange(itemId, 'sellingPrice', String(computedSell));
+  };
+
   // Daily Rate Sheet: Commit all edited rows to the backend
   const handleSaveRateSheet = async () => {
     const itemIds = Object.keys(rateSheetRows);
@@ -970,6 +984,33 @@ export default function StockInward() {
                               onChange={(e) => handleSheetRowChange(item._id, 'sellingPrice', e.target.value)}
                               className="w-full pl-5 pr-2 py-1.5 bg-white border-2 border-brand-500 rounded-lg text-brand-950 font-mono font-black text-center text-xs focus:outline-none focus:border-brand-600 shadow-2xs"
                             />
+                          </div>
+                          {/* Quick Margin Suggestion Chips */}
+                          <div className="flex items-center justify-center gap-1 mt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleApplyMargin(item._id, 20)}
+                              className="px-1 py-0.5 text-[9px] font-extrabold bg-white hover:bg-brand-100 text-brand-800 rounded border border-brand-200 transition"
+                              title="Calculate +20% margin on cost price"
+                            >
+                              +20%
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleApplyMargin(item._id, 25)}
+                              className="px-1 py-0.5 text-[9px] font-extrabold bg-white hover:bg-brand-100 text-brand-800 rounded border border-brand-200 transition"
+                              title="Calculate +25% margin on cost price"
+                            >
+                              +25%
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleApplyMargin(item._id, 30)}
+                              className="px-1 py-0.5 text-[9px] font-extrabold bg-white hover:bg-brand-100 text-brand-800 rounded border border-brand-200 transition"
+                              title="Calculate +30% margin on cost price"
+                            >
+                              +30%
+                            </button>
                           </div>
                         </td>
                         <td className="py-2 px-3 text-right font-mono font-black text-slate-800">

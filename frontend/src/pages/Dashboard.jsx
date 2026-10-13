@@ -57,10 +57,20 @@ export default function Dashboard() {
         axios.get('/api/customers?dueOnly=true')
       ]);
 
+      const rawPending = customersRes.data?.customers 
+        || (Array.isArray(customersRes.data) ? customersRes.data : null) 
+        || metricsRes.data?.pendingCreditCustomers 
+        || [];
+      const pendingList = Array.isArray(rawPending) ? rawPending : [];
+      const totalUdharVal = customersRes.data?.totalPending !== undefined 
+        ? Number(customersRes.data.totalPending) 
+        : pendingList.reduce((sum, c) => sum + (Number(c.balanceDue || c.currentBalance) || 0), 0);
+
       setMetrics({
         ...metricsRes.data,
-        recentBills: billsRes.data?.bills || [],
-        pendingCreditCustomers: customersRes.data || metricsRes.data?.pendingCreditCustomers || []
+        recentBills: Array.isArray(billsRes.data?.bills) ? billsRes.data.bills : (Array.isArray(billsRes.data) ? billsRes.data : []),
+        pendingCreditCustomers: pendingList,
+        totalUdhar: totalUdharVal
       });
     } catch (err) {
       console.error('Error fetching dashboard:', err);
@@ -77,16 +87,16 @@ export default function Dashboard() {
 
   const sendWhatsAppReminder = (cust) => {
     const phone = cust.phone?.replace(/[^0-9]/g, '');
-    const amount = cust.currentBalance || 0;
-    const msg = `Dear ${cust.name}, this is a gentle reminder from ${storeName}. Your pending balance is ₹${amount.toFixed(2)}. Please make the payment at your earliest convenience. Thank you! 🙏`;
+    const amount = cust.balanceDue || cust.currentBalance || 0;
+    const msg = `Dear ${cust.name}, this is a gentle reminder from ${storeName}. Your pending balance is ₹${Number(amount).toFixed(2)}. Please make the payment at your earliest convenience. Thank you! 🙏`;
     const url = phone ? `https://wa.me/91${phone}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
   };
 
-  const totalUdhar = (metrics.pendingCreditCustomers || []).reduce(
-    (sum, c) => sum + (Number(c.currentBalance) || 0),
-    0
-  );
+  const pendingList = Array.isArray(metrics.pendingCreditCustomers) ? metrics.pendingCreditCustomers : [];
+  const totalUdhar = metrics.totalUdhar !== undefined
+    ? Number(metrics.totalUdhar)
+    : pendingList.reduce((sum, c) => sum + (Number(c.balanceDue || c.currentBalance) || 0), 0);
 
   return (
     <div className="w-full space-y-3 pb-16 md:pb-4 select-none">
@@ -344,7 +354,7 @@ export default function Dashboard() {
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="text-right">
                         <span className="text-xs font-black font-mono text-rose-600 block">
-                          ₹{Number(cust.currentBalance || 0).toFixed(2)}
+                          ₹{Number(cust.balanceDue || cust.currentBalance || 0).toFixed(2)}
                         </span>
                       </div>
 

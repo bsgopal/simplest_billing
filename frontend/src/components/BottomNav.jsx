@@ -30,7 +30,7 @@ export default function BottomNav() {
     { label: 'Bills', icon: History, path: '/bills' },
     { label: 'New Bill', icon: Receipt, path: '/billing', isHighlight: true },
     { label: 'Products', icon: Package, path: '/items' },
-    { label: 'Udhar', icon: Users, path: '/customers' }
+    { label: 'Customers', icon: Users, path: '/customers' }
   ];
 
   // Mobile drawer categories matching JSON tree format
@@ -57,7 +57,7 @@ export default function BottomNav() {
       title: 'Parties & Ledger',
       icon: Users,
       items: [
-        { label: 'Customers & Udhar', path: '/customers', icon: Users },
+        { label: 'Customers & Ledger', path: '/customers', icon: Users },
         { label: 'Suppliers & Vendors', path: '/suppliers', icon: Truck },
         { label: 'Purchases Inward', path: '/purchases', icon: ShoppingBag }
       ]

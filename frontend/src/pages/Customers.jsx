@@ -126,8 +126,8 @@ export default function Customers() {
       <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Users className="w-5 h-5 text-amber-600" />
-            Customers &amp; Udhar Credit
+            <Users className="w-5 h-5 text-brand-600" />
+            Customers &amp; Accounts Ledger
           </h2>
           <p className="text-xs text-slate-500 font-medium">
             Total Outstanding Balance: <strong className="text-amber-700 text-sm">₹{totalPending.toFixed(2)}</strong>
@@ -314,7 +314,7 @@ export default function Customers() {
       {payModalCustomer && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
           <form onSubmit={handleReceivePayment} className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-slate-200">
-            <h3 className="font-extrabold text-slate-900 text-base mb-1">Receive Udhar Payment</h3>
+            <h3 className="font-extrabold text-slate-900 text-base mb-1">Receive Customer Payment</h3>
             <p className="text-xs text-slate-500 mb-3">
               Customer: <strong className="text-slate-800">{payModalCustomer.name}</strong> • Due: <strong className="text-amber-700">₹{(payModalCustomer.balanceDue || 0).toFixed(2)}</strong>
             </p>

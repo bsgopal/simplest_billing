@@ -601,6 +601,38 @@ export default function Items() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Product Code (Short Code)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 101, DAL, AY01 (Auto if blank)"
+                    value={formData.code}
+                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-hidden focus:border-brand-500"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    Leave blank to auto-generate
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Primary Barcode</label>
+                  <input
+                    type="text"
+                    placeholder="Optional (e.g. 890123...)"
+                    value={formData.barcode}
+                    onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-hidden focus:border-brand-500"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    Can also link in Stock Inward
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">Category *</label>
                   <select
                     required

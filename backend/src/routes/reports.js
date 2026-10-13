@@ -218,4 +218,81 @@ router.get('/summary', protect, async (req, res) => {
   }
 });
 
+router.get('/stock', protect, async (req, res) => {
+  try {
+    const models = getTenantDb(req.customerCode);
+    const items = await models.Item.find({ isActive: true }).sort({ currentStock: 1, name: 1 });
+    
+    let totalStockQty = 0;
+    let totalCostValuation = 0;
+    let totalRetailValuation = 0;
+    let lowStockCount = 0;
+    let outOfStockCount = 0;
+
+    for (const it of items) {
+      const stock = Number(it.currentStock || 0);
+      totalStockQty += stock;
+      totalCostValuation += (stock * Number(it.purchasePrice || 0));
+      totalRetailValuation += (stock * Number(it.sellingPrice || 0));
+      if (stock <= 0) {
+        outOfStockCount++;
+      } else if (stock <= Number(it.lowStockLevel || 5)) {
+        lowStockCount++;
+      }
+    }
+
+    const recentMovements = await models.AuditLog.find({
+      entity: 'Item'
+    }).sort({ createdAt: -1 }).limit(30);
+
+    res.json({
+      summary: {
+        totalItems: items.length,
+        totalStockQty: Number(totalStockQty.toFixed(2)),
+        totalCostValuation: Number(totalCostValuation.toFixed(2)),
+        totalRetailValuation: Number(totalRetailValuation.toFixed(2)),
+        lowStockCount,
+        outOfStockCount
+      },
+      items,
+      recentMovements
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error generating stock report', error: error.message });
+  }
+});
+
+router.get('/customers', protect, async (req, res) => {
+  try {
+    const models = getTenantDb(req.customerCode);
+    const customers = await models.Customer.find({ isActive: true }).sort({ balanceDue: -1, name: 1 });
+    
+    let totalDue = 0;
+    let customersWithDue = 0;
+
+    for (const c of customers) {
+      const due = Number(c.balanceDue || 0);
+      totalDue += due;
+      if (due > 0) customersWithDue++;
+    }
+
+    const recentLedger = await models.CustomerLedger.find()
+      .populate('customerId', 'name phone')
+      .sort({ date: -1 })
+      .limit(50);
+
+    res.json({
+      summary: {
+        totalCustomers: customers.length,
+        totalDue: Number(totalDue.toFixed(2)),
+        customersWithDue
+      },
+      customers,
+      recentLedger
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error generating customer report', error: error.message });
+  }
+});
+
 export default router;

@@ -60,7 +60,7 @@ export default function Sidebar() {
       label: 'Parties & Ledger',
       icon: Users,
       children: [
-        { label: 'Customers & Udhar', icon: Users, path: '/customers', isBranch: true },
+        { label: 'Customers & Ledger', icon: Users, path: '/customers', isBranch: true },
         { label: 'Suppliers & Vendors', icon: Truck, path: '/suppliers', isBranch: true },
         { label: 'Purchases Inward', icon: ShoppingBag, path: '/purchases', isLast: true }
       ]

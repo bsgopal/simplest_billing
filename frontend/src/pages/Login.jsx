@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import logoImg from '../assets/logo.png';
 import {
   Lock,
@@ -24,10 +24,11 @@ import {
 export default function Login() {
   const { login, customerCode, setCustomerCode, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Read URL query parameters strictly
-  const urlParams = new URLSearchParams(window.location.search);
-  const rawUrlTenant = urlParams.get('tenant') || urlParams.get('code') || urlParams.get('customerCode') || '';
+  // Read URL query parameters strictly (with location.search and saved fallback)
+  const urlParams = new URLSearchParams(location.search || window.location.search);
+  const rawUrlTenant = urlParams.get('tenant') || urlParams.get('code') || urlParams.get('customerCode') || customerCode || localStorage.getItem('simple_billing_customer_code') || '';
   const cleanUrlTenant = rawUrlTenant.trim().toLowerCase();
   const hasValidTenantUrl = Boolean(cleanUrlTenant && cleanUrlTenant !== 'default');
 

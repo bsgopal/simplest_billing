@@ -4,12 +4,16 @@ import axios from 'axios';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  // Check whether current URL query explicitly contains a tenant parameter (?tenant= / ?code= / ?customerCode=)
+  // Check whether current URL query or stored tenant session contains a tenant parameter
   const checkHasTenantParam = () => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const urlCode = urlParams.get('tenant') || urlParams.get('code') || urlParams.get('customerCode') || urlParams.get('clientId');
-      return Boolean(urlCode && urlCode.trim() && urlCode.trim().toLowerCase() !== 'default');
+      if (urlCode && urlCode.trim() && urlCode.trim().toLowerCase() !== 'default') {
+        return true;
+      }
+      const saved = localStorage.getItem('simple_billing_customer_code');
+      return Boolean(saved && saved.trim() && saved.trim().toLowerCase() !== 'default');
     } catch {
       return false;
     }
@@ -24,13 +28,17 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('simple_billing_customer_code', clean);
         return clean;
       }
+      const saved = localStorage.getItem('simple_billing_customer_code');
+      if (saved && saved.trim() && saved.trim().toLowerCase() !== 'default') {
+        return saved.trim().toLowerCase();
+      }
       return '';
     } catch {
       return '';
     }
   };
 
-  const [hasTenantParam] = useState(checkHasTenantParam);
+  const [hasTenantParam, setHasTenantParamState] = useState(checkHasTenantParam);
   const [customerCode, setCustomerCodeState] = useState(getInitialCustomerCode);
 
   const [user, setUser] = useState(() => {

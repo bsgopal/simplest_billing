@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { BillingProvider } from './context/BillingContext';
 import { LanguageProvider } from './context/LanguageContext';
@@ -28,6 +28,7 @@ import Settings from './pages/Settings';
 
 function ProtectedLayout() {
   const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -41,7 +42,8 @@ function ProtectedLayout() {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    const search = location.search || window.location.search || '';
+    return <Navigate to={`/login${search}`} replace />;
   }
 
   return (

@@ -70,6 +70,15 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/transliterate', transliterateRoutes);
 
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    service: 'Simple Retail & Petti Shop Billing API',
+    health: '/api/health',
+    time: new Date().toISOString()
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',

@@ -22,6 +22,17 @@ dotenv.config();
 
 const app = express();
 
+// Restore original request URL if rewritten by Vercel serverless function
+app.use((req, res, next) => {
+  if (req.url === '/api/index.js' || req.url.startsWith('/api/index.js')) {
+    const original = req.headers['x-matched-path'] || req.headers['x-forwarded-uri'] || req.url.replace(/^\/api\/index\.js/, '');
+    if (original) {
+      req.url = original.startsWith('/') ? original : `/${original}`;
+    }
+  }
+  next();
+});
+
 // Global Permissive CORS middleware for cross-origin Vercel deployments
 app.use((req, res, next) => {
   const origin = req.headers.origin || '*';

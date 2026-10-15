@@ -8,7 +8,7 @@ export const connectDB = async () => {
     return mongoose.connection;
   }
 
-  const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/simple_billing';
+  const uri = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/simple_billing';
   const attempts = process.env.VERCEL ? 1 : 3;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {

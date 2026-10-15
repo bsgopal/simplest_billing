@@ -6,7 +6,8 @@ import './index.css';
 
 // Base URL configuration for Vercel deployment (uses VITE_API_URL if defined, otherwise falls back to relative /api)
 if (import.meta.env.VITE_API_URL) {
-  axios.defaults.baseURL = import.meta.env.VITE_API_URL;
+  const cleanUrl = String(import.meta.env.VITE_API_URL).trim().replace(/\/+$/, '');
+  axios.defaults.baseURL = cleanUrl.endsWith('/api') ? cleanUrl.slice(0, -4) : cleanUrl;
 }
 
 // Global Axios configuration to ensure Authorization and Tenant headers are always attached

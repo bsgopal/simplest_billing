@@ -14,6 +14,7 @@ export const connectDB = async () => {
     try {
       mongoose.set('strictQuery', false);
       const conn = await mongoose.connect(uri, {
+        dbName: 'simple_billing',
         serverSelectionTimeoutMS: 5000
       });
       console.log(`\x1b[32m[Simple Billing MongoDB Connected]: ${conn.connection.host}\x1b[0m`);

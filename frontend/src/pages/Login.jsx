@@ -25,14 +25,22 @@ export default function Login() {
   const { login, customerCode, setCustomerCode, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
+  // Read URL query parameters strictly
+  const urlParams = new URLSearchParams(window.location.search);
+  const rawUrlTenant = urlParams.get('tenant') || urlParams.get('code') || urlParams.get('customerCode') || '';
+  const cleanUrlTenant = rawUrlTenant.trim().toLowerCase();
+  const hasValidTenantUrl = Boolean(cleanUrlTenant && cleanUrlTenant !== 'default');
+
+  // Renic Soft Verification state
+  const [verifyingTenant, setVerifyingTenant] = useState(hasValidTenantUrl);
+  const [tenantVerificationError, setTenantVerificationError] = useState('');
+  const [renicTenant, setRenicTenant] = useState(null);
+
   // Mode: 'PASSWORD' (default as requested) or 'PIN'
   const [mode, setMode] = useState('PASSWORD');
 
   // Form Fields
-  const [shopCodeInput, setShopCodeInput] = useState(() => {
-    const code = customerCode || localStorage.getItem('simple_billing_customer_code') || '';
-    return code === 'default' ? '' : code;
-  });
+  const [shopCodeInput, setShopCodeInput] = useState(() => cleanUrlTenant || customerCode || '');
   const [mobile, setMobile] = useState(() => localStorage.getItem('simple_billing_last_mobile') || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -54,15 +62,54 @@ export default function Login() {
     }
   }, [isAuthenticated, navigate]);
 
-  // Fetch shop metadata and users for the current customerCode (debounced)
+  // 1. Verify tenant with Renic Soft Master HQ
   useEffect(() => {
+    if (!hasValidTenantUrl) {
+      setVerifyingTenant(false);
+      return;
+    }
+
+    let isMounted = true;
+    const verify = async () => {
+      setVerifyingTenant(true);
+      setTenantVerificationError('');
+      try {
+        const res = await axios.get(`/api/auth/verify-tenant?tenant=${encodeURIComponent(cleanUrlTenant)}`);
+        if (isMounted) {
+          if (res.data && res.data.verified) {
+            setRenicTenant(res.data);
+            setShopCodeInput(cleanUrlTenant);
+            setCustomerCode(cleanUrlTenant);
+          } else {
+            setTenantVerificationError(res.data?.message || `Store '${cleanUrlTenant}' is not registered in Renic Soft.`);
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setTenantVerificationError(
+            err.response?.data?.message || `Store '${cleanUrlTenant}' is not registered in Renic Soft HQ. Please check with your administrator.`
+          );
+        }
+      } finally {
+        if (isMounted) setVerifyingTenant(false);
+      }
+    };
+
+    verify();
+    return () => { isMounted = false; };
+  }, [cleanUrlTenant, hasValidTenantUrl]);
+
+  // 2. Fetch shop metadata and users for the verified customerCode
+  useEffect(() => {
+    if (!hasValidTenantUrl || tenantVerificationError) return;
+
     const timer = setTimeout(async () => {
       try {
-        const cleanCode = (shopCodeInput || '').trim().toLowerCase();
+        const cleanCode = (shopCodeInput || cleanUrlTenant).trim().toLowerCase();
         const res = await axios.get('/api/auth/users', {
           headers: {
-            'X-Customer-Code': cleanCode || 'default',
-            'X-Customer-Id': cleanCode || 'default'
+            'X-Customer-Code': cleanCode,
+            'X-Customer-Id': cleanCode
           }
         });
         setUsers(res.data.users || []);
@@ -78,10 +125,14 @@ export default function Login() {
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [shopCodeInput]);
+  }, [shopCodeInput, cleanUrlTenant, hasValidTenantUrl, tenantVerificationError]);
 
   const handlePasswordLogin = async (e) => {
     if (e) e.preventDefault();
+    if (!hasValidTenantUrl || tenantVerificationError) {
+      setError('Access blocked: Valid store tenant URL required.');
+      return;
+    }
     if (!mobile.trim() || !password) {
       setError('Please enter both mobile number and password');
       return;
@@ -94,7 +145,7 @@ export default function Login() {
         mode: 'PASSWORD',
         mobile: mobile.trim(),
         password,
-        customerCode: shopCodeInput.trim() || 'default'
+        customerCode: (cleanUrlTenant || shopCodeInput).trim()
       });
       localStorage.setItem('simple_billing_last_mobile', mobile.trim());
       navigate('/');
@@ -114,7 +165,7 @@ export default function Login() {
         mode: 'PIN',
         pin: pinValue,
         userId: selectedUser,
-        customerCode: shopCodeInput.trim() || 'default'
+        customerCode: (cleanUrlTenant || shopCodeInput).trim()
       });
       navigate('/');
     } catch (err) {
@@ -304,75 +355,140 @@ export default function Login() {
           </div>
         </div>
 
-        {/* The Login Card Container */}
-        <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl relative">
-          
-          <div className="mb-6">
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900">Counter Sign In</h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Select your preferred login method to access your billing counter
+        {/* ─────────────────────────────────────────────────────────────
+            CASE 1: Missing Tenant in URL Query (Block Login)
+           ───────────────────────────────────────────────────────────── */}
+        {!hasValidTenantUrl ? (
+          <div className="w-full max-w-md bg-white border border-rose-200 rounded-3xl p-6 sm:p-8 shadow-xl text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 bg-rose-50 border border-rose-200 rounded-2xl flex items-center justify-center mx-auto mb-4 text-rose-600 shadow-inner">
+              <Lock className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 mb-2">
+              Store Access Restricted
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 mb-6 leading-relaxed">
+              Simple Billing requires a valid store launch link containing your registered store tenant parameter. Direct access without a store identifier is blocked.
             </p>
-          </div>
 
-          {/* 2 Login Format Tabs (DEFAULT: Mobile & Password) */}
-          <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl border border-slate-200 mb-6">
-            <button
-              type="button"
-              onClick={() => { setMode('PASSWORD'); setError(''); }}
-              className={`flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-xl transition ${
-                mode === 'PASSWORD'
-                  ? 'bg-brand-500 text-slate-950 shadow-xs font-black'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Phone className="w-3.5 h-3.5" />
-              <span>Mobile &amp; Password</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => { setMode('PIN'); setError(''); }}
-              className={`flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-xl transition ${
-                mode === 'PIN'
-                  ? 'bg-brand-500 text-slate-950 shadow-xs font-black'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-              <span>4-Digit PIN</span>
-            </button>
-          </div>
-
-          {/* Error Banner */}
-          {error && (
-            <div className="mb-5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-left mb-6 font-mono text-xs">
+              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                Required URL Format
+              </span>
+              <code className="text-emerald-700 font-bold break-all">
+                https://simplebilling-pi.vercel.app/?tenant=YOUR_STORE_CODE
+              </code>
             </div>
-          )}
 
-          {/* Tenant / Shop Code Identifier */}
-          <div className="mb-4">
-            <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-              Tenant / Shop ID
-            </label>
-            <div className="relative">
-              <Building2 className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={shopCodeInput}
-                onChange={(e) => setShopCodeInput(e.target.value.toLowerCase())}
-                onBlur={() => setCustomerCode(shopCodeInput)}
-                placeholder="e.g. main, demo, shop01"
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm font-mono placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:bg-white"
-              />
-            </div>
-            {shopCodeInput && shopCodeInput !== 'default' && (
-              <p className="text-[10px] text-slate-400 mt-1">
-                Database: <span className="text-slate-600 font-mono">simple_billing-{shopCodeInput.replace(/^(simple_billing[-_]|renic_tenant_)/, '')}</span>
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-left text-xs text-amber-900 leading-relaxed">
+              <p className="font-bold mb-1.5 flex items-center gap-1.5 text-amber-800">
+                <AlertCircle className="w-4 h-4 shrink-0" /> How to launch your billing counter:
               </p>
-            )}
+              <ul className="list-disc pl-4 space-y-1 text-[11px] text-amber-800">
+                <li>Open your dedicated link generated in <b>Renic Soft Master HQ</b>.</li>
+                <li>Or click the store launch link sent via WhatsApp to the registered mobile.</li>
+                <li>Contact Renic Soft support if you require your store credentials.</li>
+              </ul>
+            </div>
           </div>
+        ) : verifyingTenant ? (
+          /* ─────────────────────────────────────────────────────────────
+             CASE 2: Verifying Tenant License with Renic Soft
+             ───────────────────────────────────────────────────────────── */
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-8 shadow-xl text-center animate-in fade-in duration-200">
+            <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <h2 className="text-lg font-bold text-slate-900 mb-1">Verifying Store Registration</h2>
+            <p className="text-xs text-slate-500 font-mono">Connecting to Renic Soft Master HQ for [{cleanUrlTenant}]...</p>
+          </div>
+        ) : tenantVerificationError ? (
+          /* ─────────────────────────────────────────────────────────────
+             CASE 3: Tenant is NOT registered in Renic Soft
+             ───────────────────────────────────────────────────────────── */
+          <div className="w-full max-w-md bg-white border border-rose-200 rounded-3xl p-6 sm:p-8 shadow-xl text-center animate-in fade-in duration-200">
+            <div className="w-16 h-16 bg-rose-50 border border-rose-200 rounded-2xl flex items-center justify-center mx-auto mb-4 text-rose-600 shadow-inner">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 mb-2">
+              Client Not Registered
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 mb-4 leading-relaxed">
+              {tenantVerificationError}
+            </p>
+
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-left mb-6 font-mono text-xs">
+              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                Requested Store Code
+              </span>
+              <code className="text-rose-600 font-bold text-sm">
+                {cleanUrlTenant}
+              </code>
+            </div>
+
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-600 text-left leading-relaxed">
+              <p className="font-bold text-slate-800 mb-1">Administrator Notice:</p>
+              <p className="text-[11px]">
+                Please register this store client in <b>Renic Soft Master HQ</b> under <i>Applications &rarr; Simple Retail &amp; Petti Shop Billing &rarr; Licenses</i> to activate access.
+              </p>
+            </div>
+          </div>
+        ) : (
+          /* ─────────────────────────────────────────────────────────────
+             CASE 4: Valid & Verified Client - Render Sign In Card
+             ───────────────────────────────────────────────────────────── */
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl relative animate-in fade-in duration-200">
+            
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Verified by Renic Soft
+                </span>
+                <span className="text-[11px] font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                  Store: {cleanUrlTenant}
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+                {renicTenant?.shopName || shopInfo?.shopName || 'Counter Sign In'}
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Select your preferred login method to access your billing counter
+              </p>
+            </div>
+
+            {/* 2 Login Format Tabs (DEFAULT: Mobile & Password) */}
+            <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl border border-slate-200 mb-6">
+              <button
+                type="button"
+                onClick={() => { setMode('PASSWORD'); setError(''); }}
+                className={`flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-xl transition ${
+                  mode === 'PASSWORD'
+                    ? 'bg-brand-500 text-slate-950 shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Mobile &amp; Password</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setMode('PIN'); setError(''); }}
+                className={`flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-xl transition ${
+                  mode === 'PIN'
+                    ? 'bg-brand-500 text-slate-950 shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>4-Digit PIN</span>
+              </button>
+            </div>
+
+            {/* Error Banner */}
+            {error && (
+              <div className="mb-5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
 
           {/* ─────────────────────────────────────────────────────────────
               FORMAT 1: MOBILE NUMBER & PASSWORD (DEFAULT)
@@ -527,6 +643,7 @@ export default function Login() {
             </div>
           )}
         </div>
+        )}
       </div>
     </div>
   );

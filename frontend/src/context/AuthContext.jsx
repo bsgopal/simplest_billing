@@ -4,22 +4,33 @@ import axios from 'axios';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  // Read customerCode from URL query parameters (e.g. ?code=CLIENT1 or ?tenant=CLIENT1) or localStorage
+  // Check whether current URL query explicitly contains a tenant parameter (?tenant= / ?code= / ?customerCode=)
+  const checkHasTenantParam = () => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlCode = urlParams.get('tenant') || urlParams.get('code') || urlParams.get('customerCode') || urlParams.get('clientId');
+      return Boolean(urlCode && urlCode.trim() && urlCode.trim().toLowerCase() !== 'default');
+    } catch {
+      return false;
+    }
+  };
+
   const getInitialCustomerCode = () => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      const urlCode = urlParams.get('code') || urlParams.get('customerCode') || urlParams.get('tenant') || urlParams.get('clientId');
-      if (urlCode) {
+      const urlCode = urlParams.get('tenant') || urlParams.get('code') || urlParams.get('customerCode') || urlParams.get('clientId');
+      if (urlCode && urlCode.trim() && urlCode.trim().toLowerCase() !== 'default') {
         const clean = urlCode.trim().toLowerCase();
         localStorage.setItem('simple_billing_customer_code', clean);
         return clean;
       }
-      return localStorage.getItem('simple_billing_customer_code') || 'default';
+      return '';
     } catch {
-      return 'default';
+      return '';
     }
   };
 
+  const [hasTenantParam] = useState(checkHasTenantParam);
   const [customerCode, setCustomerCodeState] = useState(getInitialCustomerCode);
 
   const [user, setUser] = useState(() => {
@@ -147,6 +158,7 @@ export const AuthProvider = ({ children }) => {
       shop,
       token,
       customerCode,
+      hasTenantParam,
       setCustomerCode,
       login,
       logout,

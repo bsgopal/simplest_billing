@@ -7,6 +7,47 @@ import { protect, authorize } from '../middleware/auth.js';
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'SimpleBilling_Secure_Key_2026_Retail';
 
+// @desc    Verify tenant code against Renic Soft Master HQ
+// @route   GET /api/auth/verify-tenant
+router.get('/verify-tenant', async (req, res) => {
+  try {
+    const rawCode = req.query.tenant || req.query.code || req.customerCode;
+    const cleanCode = String(rawCode || '').trim().toLowerCase();
+
+    if (!cleanCode || cleanCode === 'default') {
+      return res.status(400).json({
+        success: false,
+        verified: false,
+        code: 'MISSING_TENANT_PARAM',
+        message: 'A store tenant code is required in the URL (e.g. ?tenant=your_store_code).'
+      });
+    }
+
+    const { verifyTenantWithRenic } = await import('../middleware/license.js');
+    const check = await verifyTenantWithRenic(cleanCode);
+
+    if (!check.verified) {
+      return res.status(403).json({
+        success: false,
+        verified: false,
+        code: 'CLIENT_NOT_REGISTERED',
+        message: check.message || `Store '${cleanCode}' is not registered in Renic Soft.`
+      });
+    }
+
+    res.json({
+      success: true,
+      verified: true,
+      customerCode: cleanCode,
+      shopName: check.shopName,
+      softwareProduct: check.softwareProduct,
+      licenseStatus: check.licenseStatus
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, verified: false, message: error.message });
+  }
+});
+
 // @desc    Get active shop users for quick-switch & shop meta
 // @route   GET /api/auth/users
 router.get('/users', async (req, res) => {

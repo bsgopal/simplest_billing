@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { tenantResolver } from './middleware/tenantResolver.js';
+import { enforceClientRegistration } from './middleware/license.js';
 
 import authRoutes from './routes/auth.js';
 import billRoutes from './routes/bills.js';
@@ -70,6 +71,7 @@ app.use(async (req, res, next) => {
 });
 
 app.use(tenantResolver);
+app.use(enforceClientRegistration);
 
 // Routes
 app.use('/api/auth', authRoutes);

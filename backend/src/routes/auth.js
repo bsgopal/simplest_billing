@@ -11,7 +11,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'SimpleBilling_Secure_Key_2026_Reta
 // @route   GET /api/auth/users
 router.get('/users', async (req, res) => {
   try {
-    const { User, ShopSetting } = await ensureTenantBootstrapped(req.customerCode);
+    const { User, ShopSetting } = getTenantDb(req.customerCode);
     const users = await User.find({ isActive: true }).select('name role mobile');
     const settings = await ShopSetting.findOne();
     res.json({

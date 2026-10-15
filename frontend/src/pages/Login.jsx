@@ -54,14 +54,15 @@ export default function Login() {
     }
   }, [isAuthenticated, navigate]);
 
-  // Fetch shop metadata and users for the current customerCode
+  // Fetch shop metadata and users for the current customerCode (debounced)
   useEffect(() => {
-    const fetchShopMeta = async () => {
+    const timer = setTimeout(async () => {
       try {
+        const cleanCode = (shopCodeInput || '').trim().toLowerCase();
         const res = await axios.get('/api/auth/users', {
           headers: {
-            'X-Customer-Code': shopCodeInput || 'default',
-            'X-Customer-Id': shopCodeInput || 'default'
+            'X-Customer-Code': cleanCode || 'default',
+            'X-Customer-Id': cleanCode || 'default'
           }
         });
         setUsers(res.data.users || []);
@@ -74,8 +75,9 @@ export default function Login() {
       } catch (err) {
         // Fallback info if offline
       }
-    };
-    fetchShopMeta();
+    }, 400);
+
+    return () => clearTimeout(timer);
   }, [shopCodeInput]);
 
   const handlePasswordLogin = async (e) => {
@@ -359,17 +361,15 @@ export default function Login() {
               <input
                 type="text"
                 value={shopCodeInput}
-                onChange={(e) => {
-                  setShopCodeInput(e.target.value.toLowerCase());
-                  setCustomerCode(e.target.value.toLowerCase());
-                }}
+                onChange={(e) => setShopCodeInput(e.target.value.toLowerCase())}
+                onBlur={() => setCustomerCode(shopCodeInput)}
                 placeholder="e.g. main, demo, shop01"
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm font-mono placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:bg-white"
               />
             </div>
             {shopCodeInput && shopCodeInput !== 'default' && (
               <p className="text-[10px] text-slate-400 mt-1">
-                Database: <span className="text-slate-600 font-mono">renic_tenant_{shopCodeInput}</span>
+                Database: <span className="text-slate-600 font-mono">simple_billing-{shopCodeInput.replace(/^(simple_billing[-_]|renic_tenant_)/, '')}</span>
               </p>
             )}
           </div>

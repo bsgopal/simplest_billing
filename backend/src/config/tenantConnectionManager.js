@@ -41,14 +41,24 @@ for (const [name, model] of Object.entries(baseModels)) {
 
 const bootstrappedTenants = new Set();
 
-export function getTenantDb(customerCode) {
+export function resolveTargetDbName(customerCode) {
   let cleanCode = (customerCode || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
   if (!cleanCode || cleanCode === 'default' || cleanCode === 'localhost' || cleanCode === '127001') {
-    cleanCode = 'default';
+    return 'simple_billing';
   }
 
-  // Renic SaaS convention: renic_tenant_<customercode>
-  const targetDb = cleanCode === 'default' ? 'simple_billing' : `renic_tenant_${cleanCode}`;
+  // Strip any accidental duplicate prefixes (e.g. renic_tenant_ or simple_billing- / simple_billing_)
+  const slug = cleanCode.replace(/^(renic_tenant_|simple_billing[-_])+/g, '');
+  if (!slug) {
+    return 'simple_billing';
+  }
+
+  // Desired convention for Simple Billing tenants: simple_billing-<customerid>
+  return `simple_billing-${slug}`;
+}
+
+export function getTenantDb(customerCode) {
+  const targetDb = resolveTargetDbName(customerCode);
   const tenantConn = mongoose.connection.useDb(targetDb, { useCache: true });
 
   const models = {};
@@ -56,21 +66,19 @@ export function getTenantDb(customerCode) {
     models[name] = tenantConn.models[name] || tenantConn.model(name, schema);
   }
 
-  // Seed default owner PIN & walk-in customer on first tenant load
-  if (!bootstrappedTenants.has(targetDb)) {
-    bootstrappedTenants.add(targetDb);
-    bootstrapTenantDefaults(models, cleanCode).catch(err => {
-      console.error(`[Tenant Bootstrap Error] ${targetDb}:`, err.message);
-    });
-  }
-
   return models;
 }
 
 export async function ensureTenantBootstrapped(customerCode) {
+  const targetDb = resolveTargetDbName(customerCode);
   const models = getTenantDb(customerCode);
   const cleanCode = (customerCode || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'default';
-  await bootstrapTenantDefaults(models, cleanCode);
+
+  if (!bootstrappedTenants.has(targetDb)) {
+    bootstrappedTenants.add(targetDb);
+    await bootstrapTenantDefaults(models, cleanCode);
+  }
+
   return models;
 }
 

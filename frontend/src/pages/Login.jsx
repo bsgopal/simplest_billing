@@ -41,6 +41,8 @@ export default function Login() {
 
   // Form Fields
   const [shopCodeInput, setShopCodeInput] = useState(() => cleanUrlTenant || customerCode || '');
+  const [directTenantCode, setDirectTenantCode] = useState('');
+  const savedCustomerCode = localStorage.getItem('simple_billing_customer_code') || '';
   const [mobile, setMobile] = useState(() => localStorage.getItem('simple_billing_last_mobile') || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -366,28 +368,69 @@ export default function Login() {
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 mb-2">
               Store Access Restricted
             </h2>
-            <p className="text-xs sm:text-sm text-slate-600 mb-6 leading-relaxed">
-              Simple Billing requires a valid store launch link containing your registered store tenant parameter. Direct access without a store identifier is blocked.
+            <p className="text-xs sm:text-sm text-slate-600 mb-5 leading-relaxed">
+              Simple Billing is a multi-tenant platform. To open your billing counter, enter your store code below or use your dedicated link:
             </p>
 
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-left mb-6 font-mono text-xs">
+            {/* Quick Launch by Store Code */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const code = (directTenantCode || '').trim().toLowerCase();
+                if (code) {
+                  window.location.href = `/?tenant=${encodeURIComponent(code)}`;
+                }
+              }}
+              className="mb-5 space-y-2 text-left"
+            >
+              <label className="block text-[11px] font-bold text-slate-700">
+                Enter Store Code to Launch:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={directTenantCode}
+                  onChange={(e) => setDirectTenantCode(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+                  placeholder="e.g. renic-sb01"
+                  className="flex-1 px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 lowercase"
+                />
+                <button
+                  type="submit"
+                  disabled={!directTenantCode.trim()}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer shrink-0"
+                >
+                  Launch Store ➔
+                </button>
+              </div>
+              {savedCustomerCode && (
+                <button
+                  type="button"
+                  onClick={() => { window.location.href = `/?tenant=${encodeURIComponent(savedCustomerCode)}`; }}
+                  className="w-full mt-2 py-2 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>Continue with recent store:</span>
+                  <span className="font-mono font-extrabold text-emerald-950 underline">{savedCustomerCode}</span>
+                  <span>➔</span>
+                </button>
+              )}
+            </form>
+
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-left mb-4 font-mono text-xs">
               <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                Required URL Format
+                Direct URL Format
               </span>
-              <code className="text-emerald-700 font-bold break-all">
-                https://simplebilling-pi.vercel.app/?tenant=YOUR_STORE_CODE
+              <code className="text-emerald-700 font-bold break-all text-[11px]">
+                https://simplebilling-pi.vercel.app/?tenant=renic-sb01
               </code>
             </div>
 
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-left text-xs text-amber-900 leading-relaxed">
-              <p className="font-bold mb-1.5 flex items-center gap-1.5 text-amber-800">
-                <AlertCircle className="w-4 h-4 shrink-0" /> How to launch your billing counter:
+            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-left text-xs text-amber-900 leading-relaxed">
+              <p className="font-bold mb-1 flex items-center gap-1.5 text-amber-800 text-[11px]">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Launching from Renic Soft Master HQ:
               </p>
-              <ul className="list-disc pl-4 space-y-1 text-[11px] text-amber-800">
-                <li>Open your dedicated link generated in <b>Renic Soft Master HQ</b>.</li>
-                <li>Or click the store launch link sent via WhatsApp to the registered mobile.</li>
-                <li>Contact Renic Soft support if you require your store credentials.</li>
-              </ul>
+              <p className="text-[11px] text-amber-800">
+                You can also click <b>Open ↗</b> or <b>WhatsApp 💬</b> directly from your client card in Renic Soft Master HQ.
+              </p>
             </div>
           </div>
         ) : verifyingTenant ? (

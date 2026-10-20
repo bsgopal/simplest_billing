@@ -221,7 +221,7 @@ export default function Settings() {
                 type="text"
                 value={settings.shopName}
                 onChange={(e) => setSettings({ ...settings, shopName: e.target.value })}
-                placeholder="e.g. Balaji Provision & Fancy Store"
+                placeholder="e.g. My Retail Shop"
                 className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-lime-500"
               />
             </div>
@@ -231,7 +231,7 @@ export default function Settings() {
                 type="text"
                 value={settings.phone}
                 onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
-                placeholder="e.g. 9842512143"
+                placeholder="e.g. 9876543210"
                 className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-lime-500"
               />
             </div>
@@ -243,7 +243,7 @@ export default function Settings() {
               rows={2}
               value={settings.address}
               onChange={(e) => setSettings({ ...settings, address: e.target.value })}
-              placeholder="e.g. No. 12, Main Bazaar Road, Near Bus Stand, Salem - 636001"
+              placeholder="e.g. Store Address, Main Road, City - Pincode"
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-lime-500"
             />
           </div>
@@ -280,7 +280,7 @@ export default function Settings() {
                       maxLength={15}
                       value={settings.gstin || ''}
                       onChange={(e) => setSettings({ ...settings, gstin: e.target.value.toUpperCase().trim() })}
-                      placeholder="e.g. 33AAAAA0000A1Z5"
+                      placeholder="Enter 15-digit GSTIN (Optional)"
                       className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono font-bold focus:outline-none focus:border-lime-500"
                     />
                     <span className="text-[10px] text-slate-400 mt-0.5 block">State code + PAN + entity + checksum</span>
@@ -350,7 +350,7 @@ export default function Settings() {
               type="text"
               value={settings.upiId || ''}
               onChange={(e) => setSettings({ ...settings, upiId: e.target.value })}
-              placeholder="e.g. 9842512143@upi or shop@okaxis"
+              placeholder="e.g. username@upi or store@bank"
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-lime-500"
             />
           </div>
@@ -810,7 +810,7 @@ export default function Settings() {
               Store Display & Typing Language
             </h3>
             <p className="text-xs text-slate-400 mt-1">
-              Select your preferred regional language. When phonetic typing is active, typing in English (e.g., <span className="text-lime-300 font-mono">thakkali</span>) automatically converts to regional script (<span className="text-lime-300 font-bold">தக்காளி</span>) upon pressing Space or Enter.
+              Select your preferred regional language. When phonetic typing is active, typing in English (e.g., <span className="text-lime-300 font-mono">vanakkam</span>) automatically converts to regional script (<span className="text-lime-300 font-bold">வணக்கம்</span>) upon pressing Space or Enter.
             </p>
           </div>
 
@@ -880,7 +880,7 @@ export default function Settings() {
             <TransliterateInput
               value={testTyping}
               onChange={(e) => setTestTyping(e.target.value)}
-              placeholder={`Try typing "${currentLang === 'ta' ? 'thakkali venum' : currentLang === 'hi' ? 'tamatar chahiye' : 'product name'}" and hit space...`}
+              placeholder={`Try typing "${currentLang === 'ta' ? 'vanakkam' : currentLang === 'hi' ? 'namaste' : 'Item 1'}" and hit space...`}
               className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-base focus:outline-none focus:border-lime-500"
             />
             <div className="text-xs text-slate-400 flex items-center justify-between">

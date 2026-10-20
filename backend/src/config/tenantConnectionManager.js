@@ -127,15 +127,15 @@ async function bootstrapTenantDefaults(models, code) {
     const settingCount = await models.ShopSetting.countDocuments();
     if (settingCount === 0) {
       await models.ShopSetting.create({
-        shopName: code === 'default' ? 'Simple Retail Store' : `Shop ${code.toUpperCase()}`,
-        ownerName: 'Owner',
-        phone: '9842512143',
-        address: 'Main Bazaar',
-        shopType: 'petti',
+        shopName: code === 'default' ? 'Retail Store' : `Store ${code.toUpperCase()}`,
+        ownerName: 'Store Admin',
+        phone: '',
+        address: '',
+        shopType: 'general',
         chargeGst: false,
         priceIncludesGst: true,
         paperSize: '80mm',
-        headerLines: ['Fresh Quality Products', 'Phone: 9842512143'],
+        headerLines: ['Welcome to our store'],
         footerMessage: 'Thank you! Visit again!'
       });
     }

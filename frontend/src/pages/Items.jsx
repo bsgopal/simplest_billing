@@ -620,7 +620,7 @@ export default function Items() {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. 101, DAL, AY01 (Auto if blank)"
+                    placeholder="e.g. 101, ITM1 (Auto if blank)"
                     value={formData.code}
                     onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-hidden focus:border-brand-500"

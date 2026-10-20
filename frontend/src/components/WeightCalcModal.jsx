@@ -91,7 +91,7 @@ export default function WeightCalcModal({ item, onAdd, onClose }) {
                 Calculated Price: <span className="text-brand-700 font-black">₹{amountValue.toFixed(2)}</span>
               </p>
 
-              {/* Quick Weight Chips (Common for loose Dal, Spices, Grains) */}
+              {/* Quick Weight Preset Chips */}
               <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5 mt-3">
                 {[0.05, 0.1, 0.25, 0.5, 1, 2, 5].map((w) => (
                   <button

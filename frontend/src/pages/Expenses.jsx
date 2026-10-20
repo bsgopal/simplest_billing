@@ -173,7 +173,7 @@ export default function Expenses() {
             <label className="text-xs font-bold text-slate-700 block mb-1">Description</label>
             <input
               type="text"
-              placeholder="e.g. Vegetable load carriage, morning tea..."
+              placeholder="e.g. Courier charges, transport, office expenses..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-hidden"

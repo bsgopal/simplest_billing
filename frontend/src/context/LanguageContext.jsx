@@ -63,7 +63,7 @@ export function LanguageProvider({ children }) {
 
   /**
    * Transliterate a single word from English phonetic input to target native script.
-   * e.g. "thakkali" -> "தக்காளி", "cheeni" -> "चीनी"
+   * e.g. "vanakkam" -> "வணக்கம்", "namaste" -> "नमस्ते"
    */
   const transliterateWord = async (word, targetLang = currentLang) => {
     if (!word || !word.trim()) return word;

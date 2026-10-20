@@ -517,7 +517,7 @@ export default function BarcodeStockModal({
                   <TransliterateInput
                     value={newItemForm.name}
                     onChange={(val) => setNewItemForm({ ...newItemForm, name: val })}
-                    placeholder="e.g. Tomato, Parle-G 250g, Aavin Milk 500ml..."
+                    placeholder="e.g. Item 1, Product Name..."
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm font-bold placeholder:text-slate-400 focus:outline-none focus:border-brand-500"
                     required
                     autoFocus

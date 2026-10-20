@@ -45,7 +45,20 @@ const shopSettingSchema = new mongoose.Schema({
       { name: 'bunch', allowDecimals: false },
       { name: 'box', allowDecimals: false }
     ]
-  }
+  },
+  // Item Code Generation Format Settings
+  itemCodePrefix: { type: String, default: 'ITM' },
+  itemCodeStartNumber: { type: Number, default: 1001 },
+  itemCodeDigits: { type: Number, default: 4 },
+  itemCodeAutoGenerate: { type: Boolean, default: true },
+
+  // Without-GST / Estimate Billing & Secret Hotkey Security Settings
+  withoutGstEnabled: { type: Boolean, default: true },
+  withoutGstHotkey: { type: String, default: 'F5' }, // e.g. 'F5', 'Ctrl+F5', 'Alt+F5', 'F8', 'F9'
+  withoutGstPassword: { type: String, default: '123456' },
+  withoutGstBillTitle: { type: String, default: 'ESTIMATE / CASH MEMO' },
+  withoutGstBillPrefix: { type: String, default: 'EST-' },
+  withoutGstHideGstin: { type: Boolean, default: true }
 }, { timestamps: true });
 
 export default mongoose.models.ShopSetting || mongoose.model('ShopSetting', shopSettingSchema);

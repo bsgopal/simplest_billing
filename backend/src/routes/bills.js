@@ -4,18 +4,23 @@ import { protect, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
-async function generateBillNo(models) {
-  const lastBill = await models.Bill.findOne().sort({ billSequence: -1 });
+async function generateBillNo(models, isWithoutGst = false) {
+  const query = isWithoutGst ? { isGstBill: false } : { isGstBill: true };
+  const lastBill = await models.Bill.findOne(query).sort({ billSequence: -1 }) ||
+                   await models.Bill.findOne().sort({ billSequence: -1 });
   const nextSeq = lastBill && lastBill.billSequence ? lastBill.billSequence + 1 : 1;
   const settings = await models.ShopSetting.findOne();
-  const prefix = settings?.billPrefix || 'BILL-';
+  const prefix = isWithoutGst
+    ? (settings?.withoutGstBillPrefix || 'EST-')
+    : (settings?.billPrefix || 'BILL-');
   const padded = String(nextSeq).padStart(5, '0');
   return { billNo: `${prefix}${padded}`, billSequence: nextSeq };
 }
 
 router.post('/', protect, async (req, res) => {
   try {
-    const { items, customer, billDiscount = 0, payments, notes } = req.body;
+    const { items, customer, billDiscount = 0, payments, notes, isWithoutGst = false, billType } = req.body;
+    const isNonGst = Boolean(isWithoutGst || billType === 'NON_GST');
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ message: 'Please add at least one item to the bill' });
@@ -23,6 +28,7 @@ router.post('/', protect, async (req, res) => {
 
     const models = getTenantDb(req.customerCode);
     const settings = await models.ShopSetting.findOne();
+    const effectiveChargeGst = isNonGst ? false : Boolean(settings?.chargeGst);
 
     let subTotal = 0;
     let taxAmount = 0;
@@ -36,11 +42,11 @@ router.post('/', protect, async (req, res) => {
       const lineAmount = Math.max(0, (qty * rate) - lineDisc);
       subTotal += lineAmount;
 
-      const gst = parseFloat(line.gstPercent) || 0;
+      const gst = effectiveChargeGst ? (parseFloat(line.gstPercent) || 0) : 0;
       let lineTax = 0;
       let lineTaxable = lineAmount;
 
-      if (settings?.chargeGst && gst > 0) {
+      if (effectiveChargeGst && gst > 0) {
         if (settings?.priceIncludesGst) {
           lineTaxable = lineAmount / (1 + (gst / 100));
           lineTax = lineAmount - lineTaxable;
@@ -124,13 +130,20 @@ router.post('/', protect, async (req, res) => {
     }
 
     const changeReturned = Math.max(0, (cash + upi + card) - (grandTotal - credit));
-    const { billNo, billSequence } = await generateBillNo(models);
+    const { billNo, billSequence } = await generateBillNo(models, isNonGst);
     const billStatus = credit > 0 ? 'Credit' : 'Paid';
+
+    const billTitle = isNonGst
+      ? (settings?.withoutGstBillTitle || 'ESTIMATE / CASH MEMO')
+      : (settings?.chargeGst ? 'TAX INVOICE' : 'RETAIL INVOICE');
 
     const newBill = await models.Bill.create({
       billNo,
       billSequence,
       date: new Date(),
+      isGstBill: !isNonGst,
+      billType: isNonGst ? 'NON_GST' : 'GST',
+      billTitle,
       customer: {
         customerId: customerDoc?._id || customer?.customerId || null,
         name: customerDoc?.name || customer?.name || 'Walk-in Customer',

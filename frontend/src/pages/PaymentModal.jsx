@@ -77,7 +77,9 @@ export default function PaymentModal({ onClose, onSuccess }) {
           card: parseFloat(cardAmount) || 0,
           credit: parseFloat(creditAmount) || 0
         },
-        notes
+        notes,
+        isWithoutGst: Boolean(calculations?.isWithoutGst),
+        billType: calculations?.isWithoutGst ? 'NON_GST' : 'GST'
       });
 
       const bill = res.data.bill;

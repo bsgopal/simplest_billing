@@ -32,9 +32,14 @@ import {
   Save,
   Check,
   ChevronDown,
-  Package
+  Package,
+  Lock,
+  Unlock,
+  KeyRound,
+  Shield
 } from 'lucide-react';
 import CameraBarcodeScanner from '../components/CameraBarcodeScanner';
+import BarcodeCheatSheetModal from '../components/BarcodeCheatSheetModal';
 
 export default function NewBill() {
   const { shop } = useAuth();
@@ -55,7 +60,9 @@ export default function NewBill() {
     calculations,
     holdCurrentBill,
     heldBills,
-    resumeHeldBill
+    resumeHeldBill,
+    isWithoutGstMode,
+    toggleWithoutGstMode
   } = useBilling();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,6 +94,13 @@ export default function NewBill() {
   const [quickRateCategory, setQuickRateCategory] = useState('All');
   const [quickRateEdits, setQuickRateEdits] = useState({});
   const [savingQuickRates, setSavingQuickRates] = useState(false);
+
+  // Loose Item Barcodes & Without-GST Mode
+  const [looseBarcodesModalOpen, setLooseBarcodesModalOpen] = useState(false);
+  const [showWithoutGstPrompt, setShowWithoutGstPrompt] = useState(false);
+  const [withoutGstPasswordInput, setWithoutGstPasswordInput] = useState('');
+  const [verifyingPassword, setVerifyingPassword] = useState(false);
+  const [withoutGstError, setWithoutGstError] = useState('');
 
   const searchInputRef = useRef(null);
   const barcodeBufferRef = useRef('');
@@ -142,9 +156,70 @@ export default function NewBill() {
     } catch {}
   };
 
+  // Password verification for secret Without-GST mode
+  const handleVerifyWithoutGstPassword = async (e) => {
+    if (e) e.preventDefault();
+    if (!withoutGstPasswordInput.trim()) {
+      setWithoutGstError('Please enter secret password');
+      return;
+    }
+    try {
+      setVerifyingPassword(true);
+      setWithoutGstError('');
+      const res = await axios.post('/api/settings/verify-without-gst-password', {
+        password: withoutGstPasswordInput.trim()
+      });
+      if (res.data?.verified) {
+        toggleWithoutGstMode(true);
+        setShowWithoutGstPrompt(false);
+        setWithoutGstPasswordInput('');
+        playScanBeep();
+        showToast('Without-GST (Estimate / Cash Memo) Activated!', 'success');
+      } else {
+        playWarningBeep();
+        setWithoutGstError('Incorrect secret password');
+      }
+    } catch (err) {
+      playWarningBeep();
+      setWithoutGstError(err.response?.data?.message || 'Incorrect secret password');
+    } finally {
+      setVerifyingPassword(false);
+    }
+  };
+
   // Global USB Barcode Scanner & Hotkey Interceptor
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
+      // Secret Without-GST Hotkey check (Fn+F5 / F5 / Ctrl+F5)
+      const targetHotkey = String(shop?.withoutGstHotkey || 'F5').toUpperCase();
+      const isF5 = e.key === 'F5' || e.code === 'F5';
+      const isCtrlF5 = (e.ctrlKey || e.metaKey) && isF5;
+      const isAltF5 = e.altKey && isF5;
+      const isF9 = e.key === 'F9' || e.code === 'F9';
+      const isCtrlB = (e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B');
+
+      const matchesHotkey = 
+        (targetHotkey === 'F5' && isF5 && !e.ctrlKey && !e.altKey) ||
+        (targetHotkey === 'CTRL+F5' && isCtrlF5) ||
+        (targetHotkey === 'ALT+F5' && isAltF5) ||
+        (targetHotkey === 'F9' && isF9) ||
+        (targetHotkey === 'CTRL+B' && isCtrlB) ||
+        (isF5); // Always intercept F5 to prevent browser reload and handle billing mode
+
+      if (matchesHotkey) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isWithoutGstMode) {
+          toggleWithoutGstMode(false);
+          showToast('Switched to GST Tax Invoice Mode (Standard)', 'success');
+        } else {
+          setWithoutGstPasswordInput('');
+          setWithoutGstError('');
+          setShowWithoutGstPrompt(true);
+        }
+        return;
+      }
+
       // Shortcut Keys
       if (e.key === 'F10') {
         e.preventDefault();
@@ -193,7 +268,7 @@ export default function NewBill() {
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [cartItems.length, allItems]);
+  }, [cartItems.length, allItems, isWithoutGstMode, shop?.withoutGstHotkey]);
 
   // Keep search input focused for instant barcode scanning
   useEffect(() => {
@@ -505,6 +580,17 @@ export default function NewBill() {
 
                 {/* Combo 3: Quick Tool Actions */}
                 <div className="flex items-center gap-0.5 pr-1 bg-slate-50/50 border-l border-slate-200 shrink-0">
+                  {/* Loose Barcodes Modal Button */}
+                  <button
+                    type="button"
+                    onClick={() => setLooseBarcodesModalOpen(true)}
+                    title="Print / View Loose Items Barcode Cheat Sheet (Dal, Spices, Grains)"
+                    className="h-8 sm:h-9 px-2 text-slate-700 hover:text-brand-700 hover:bg-brand-50 rounded-lg text-xs font-bold flex items-center gap-1 transition"
+                  >
+                    <Barcode className="w-3.5 h-3.5 text-brand-600" />
+                    <span className="hidden sm:inline">Barcodes</span>
+                  </button>
+
                   {/* Camera Barcode Scanner Button */}
                   <button
                     type="button"
@@ -771,6 +857,10 @@ export default function NewBill() {
                   <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded font-mono font-bold text-[10px] text-slate-800 shadow-2xs">Gun</kbd>
                   <span>Auto-scans</span>
                 </div>
+                <div className="flex items-center gap-1.5 col-span-2 pt-1 border-t border-slate-200">
+                  <kbd className="px-1.5 py-0.5 bg-amber-100 border border-amber-300 rounded font-mono font-bold text-[10px] text-amber-900 shadow-2xs">Fn+F5</kbd>
+                  <span className="text-amber-800 font-bold text-[10px]">Without-GST / Estimate Toggle</span>
+                </div>
               </div>
             </div>
           </div>
@@ -779,6 +869,45 @@ export default function NewBill() {
         {/* RIGHT COLUMN: Current Bill Cart & Payment (lg:col-span-5) */}
         <div className="lg:col-span-5 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
           
+          {/* Mode Indicator Banner: GST vs Without-GST */}
+          <div className={`px-3 py-1.5 flex items-center justify-between text-xs font-bold border-b transition ${
+            isWithoutGstMode 
+              ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-xs'
+              : 'bg-slate-950 text-slate-300 border-slate-800'
+          }`}>
+            <div className="flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${isWithoutGstMode ? 'bg-slate-950 animate-ping' : 'bg-lime-400'}`} />
+              <span className="tracking-wide">
+                {isWithoutGstMode 
+                  ? '🟡 WITHOUT-GST MODE (Estimate / Zero Tax)' 
+                  : '🟢 GST TAX INVOICE (Standard)'}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (isWithoutGstMode) {
+                  toggleWithoutGstMode(false);
+                  showToast('Switched to GST Tax Invoice Mode', 'success');
+                } else {
+                  setWithoutGstPasswordInput('');
+                  setWithoutGstError('');
+                  setShowWithoutGstPrompt(true);
+                }
+              }}
+              title="Toggle GST / Without-GST Mode (Hotkey: Fn+F5)"
+              className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold flex items-center gap-1 border transition ${
+                isWithoutGstMode 
+                  ? 'bg-slate-950 text-amber-300 border-slate-900 hover:bg-slate-900' 
+                  : 'bg-slate-800 text-lime-400 border-slate-700 hover:bg-slate-700'
+              }`}
+            >
+              {isWithoutGstMode ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+              <span>{isWithoutGstMode ? 'Switch to GST' : 'Fn+F5: Estimate'}</span>
+            </button>
+          </div>
+
           {/* Customer Selection Bar */}
           <div className="p-2.5 sm:p-3 bg-slate-900 text-white flex items-center justify-between gap-2">
             <div className="flex-1 min-w-0">
@@ -1196,6 +1325,92 @@ export default function NewBill() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Secret Password Modal for Without-GST Mode */}
+      {showWithoutGstPrompt && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-amber-500/50 rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5 text-amber-400">
+                <div className="p-2 bg-amber-500/20 rounded-xl">
+                  <KeyRound className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-white text-base">Secret Without-GST Mode</h3>
+                  <p className="text-[11px] text-amber-300/80">Authorized Admin / Owner Only</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowWithoutGstPrompt(false);
+                  setWithoutGstPasswordInput('');
+                  setWithoutGstError('');
+                }}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleVerifyWithoutGstPassword} className="space-y-4 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">
+                  Enter Authorization Password
+                </label>
+                <input
+                  type="password"
+                  autoFocus
+                  required
+                  value={withoutGstPasswordInput}
+                  onChange={(e) => setWithoutGstPasswordInput(e.target.value)}
+                  placeholder="Enter secret password..."
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl text-white font-mono tracking-widest text-center text-lg outline-none"
+                />
+                {withoutGstError && (
+                  <p className="text-xs font-bold text-red-400 mt-1.5 text-center">
+                    {withoutGstError}
+                  </p>
+                )}
+              </div>
+
+              <div className="text-[11px] text-slate-400 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                💡 <span className="font-semibold text-slate-300">Shortcut:</span> Type password and press <kbd className="px-1 py-0.5 bg-slate-800 rounded font-mono text-[10px] text-amber-300">Enter</kbd> to unlock Estimate mode.
+              </div>
+
+              <div className="flex gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowWithoutGstPrompt(false);
+                    setWithoutGstPasswordInput('');
+                  }}
+                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={verifyingPassword}
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-amber-500/20 transition disabled:opacity-50"
+                >
+                  {verifyingPassword ? 'Verifying...' : 'Unlock Mode'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Loose Item Barcode Cheat Sheet Modal */}
+      {looseBarcodesModalOpen && (
+        <BarcodeCheatSheetModal
+          isOpen={looseBarcodesModalOpen}
+          onClose={() => setLooseBarcodesModalOpen(false)}
+          items={allItems}
+          categories={categories}
+        />
       )}
     </div>
   );

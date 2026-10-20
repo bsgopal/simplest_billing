@@ -11,6 +11,15 @@ export const BillingProvider = ({ children }) => {
   const [billDiscount, setBillDiscount] = useState(0);
   const [notes, setNotes] = useState('');
   const [heldBills, setHeldBills] = useState([]);
+  const [isWithoutGstMode, setIsWithoutGstMode] = useState(() => localStorage.getItem('simple_billing_without_gst') === 'true');
+
+  const toggleWithoutGstMode = (val) => {
+    setIsWithoutGstMode(prev => {
+      const next = typeof val === 'boolean' ? val : !prev;
+      localStorage.setItem('simple_billing_without_gst', String(next));
+      return next;
+    });
+  };
 
   // Fetch held bills only when user is authenticated
   const fetchHeldBills = async () => {
@@ -131,10 +140,12 @@ export const BillingProvider = ({ children }) => {
     let taxAmount = 0;
     let taxableAmount = 0;
 
+    const chargeGst = !isWithoutGstMode && Boolean(shop?.chargeGst);
+
     for (const line of cartItems) {
       subTotal += line.amount;
       const gst = line.gstPercent || 0;
-      if (shop?.chargeGst && gst > 0) {
+      if (chargeGst && gst > 0) {
         if (shop?.priceIncludesGst) {
           const base = line.amount / (1 + (gst / 100));
           taxAmount += (line.amount - base);
@@ -150,7 +161,7 @@ export const BillingProvider = ({ children }) => {
 
     const discount = parseFloat(billDiscount) || 0;
     const taxableAfterDisc = Math.max(0, taxableAmount - discount);
-    let grand = shop?.chargeGst && !shop?.priceIncludesGst
+    let grand = chargeGst && !shop?.priceIncludesGst
       ? Math.max(0, subTotal - discount + taxAmount)
       : Math.max(0, subTotal - discount);
 
@@ -174,9 +185,10 @@ export const BillingProvider = ({ children }) => {
       roundOff: Math.round(roundOff * 100) / 100,
       grandTotal: grand,
       totalItems: cartItems.length,
-      totalQty: cartItems.reduce((sum, item) => sum + item.qty, 0)
+      totalQty: cartItems.reduce((sum, item) => sum + item.qty, 0),
+      isWithoutGst: isWithoutGstMode
     };
-  }, [cartItems, billDiscount, shop]);
+  }, [cartItems, billDiscount, shop, isWithoutGstMode]);
 
   const holdCurrentBill = async (note = '') => {
     if (cartItems.length === 0) return false;
@@ -234,7 +246,10 @@ export const BillingProvider = ({ children }) => {
         heldBills,
         holdCurrentBill,
         resumeHeldBill,
-        fetchHeldBills
+        fetchHeldBills,
+        isWithoutGstMode,
+        setIsWithoutGstMode,
+        toggleWithoutGstMode
       }}
     >
       {children}

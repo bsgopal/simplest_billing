@@ -49,6 +49,9 @@ const billSchema = new mongoose.Schema({
     default: 'Paid',
     index: true
   },
+  isGstBill: { type: Boolean, default: true, index: true },
+  billType: { type: String, enum: ['GST', 'NON_GST'], default: 'GST', index: true },
+  billTitle: { type: String, default: 'TAX INVOICE' },
   cancelReason: { type: String, default: '' },
   cancelledBy: { type: String, default: '' },
   cancelledAt: { type: Date },

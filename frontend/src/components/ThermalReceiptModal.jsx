@@ -53,10 +53,21 @@ export default function ThermalReceiptModal({ bill, onClose, onNewBill }) {
         >
           {/* Shop Header */}
           <div className="text-center pb-2 border-b border-dashed border-slate-300">
+            {/* Bill Format Title Badge */}
+            <div className={`text-[10px] font-black uppercase tracking-wider mb-1 px-2 py-0.5 rounded-full inline-block ${
+              bill.isGstBill === false || bill.billType === 'NON_GST'
+                ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+            }`}>
+              {bill.isGstBill === false || bill.billType === 'NON_GST'
+                ? (bill.billTitle || 'ESTIMATE / CASH MEMO')
+                : (shop?.chargeGst || bill.taxAmount > 0 ? 'TAX INVOICE' : 'RETAIL INVOICE')}
+            </div>
+
             <h2 className="text-sm font-black uppercase tracking-tight text-slate-900">{shop?.shopName || 'Retail Store'}</h2>
             <p className="text-[11px] text-slate-600">{shop?.address || 'Main Road'}</p>
             <p className="text-[11px] text-slate-600">Ph: {shop?.phone || ''}</p>
-            {(shop?.chargeGst || bill.taxAmount > 0) && shop?.gstin && (
+            {bill.isGstBill !== false && bill.billType !== 'NON_GST' && (shop?.chargeGst || bill.taxAmount > 0) && shop?.gstin && (
               <p className="text-[10px] text-slate-700 font-bold">GSTIN: {shop.gstin}</p>
             )}
           </div>
@@ -88,7 +99,7 @@ export default function ThermalReceiptModal({ bill, onClose, onNewBill }) {
                 <tr key={idx} className="border-b border-slate-100">
                   <td className="py-1 font-semibold">
                     <div>{it.name}</div>
-                    {(it.gstPercent > 0 || it.hsn) && (
+                    {bill.isGstBill !== false && bill.billType !== 'NON_GST' && (it.gstPercent > 0 || it.hsn) && (
                       <div className="text-[9px] text-slate-500 font-normal">
                         {it.hsn ? `HSN:${it.hsn} ` : ''}{it.gstPercent ? `(${it.gstPercent}% GST)` : ''}
                       </div>
@@ -114,7 +125,7 @@ export default function ThermalReceiptModal({ bill, onClose, onNewBill }) {
                 <span>-₹{bill.billDiscount.toFixed(2)}</span>
               </div>
             )}
-            {bill.taxAmount > 0 && (
+            {bill.isGstBill !== false && bill.billType !== 'NON_GST' && bill.taxAmount > 0 && (
               <>
                 <div className="flex justify-between text-slate-600">
                   <span>CGST:</span>

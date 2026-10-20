@@ -68,6 +68,31 @@ router.get('/quick', protect, async (req, res) => {
   }
 });
 
+// Get next formatted Item Code based on shop settings
+router.get('/next-code', protect, async (req, res) => {
+  try {
+    const models = getTenantDb(req.customerCode);
+    const settings = await models.ShopSetting.findOne();
+    const prefix = (settings?.itemCodePrefix !== undefined ? settings.itemCodePrefix : 'ITM').trim();
+    const startNum = Number(settings?.itemCodeStartNumber) || 1001;
+    const digits = Number(settings?.itemCodeDigits) || 4;
+    const count = await models.Item.countDocuments();
+    const seq = startNum + count;
+    const padded = String(seq).padStart(digits, '0');
+    const nextCode = prefix ? `${prefix}-${padded}` : padded;
+
+    res.json({
+      nextCode,
+      prefix,
+      startNumber: startNum,
+      digits,
+      autoGenerate: settings?.itemCodeAutoGenerate !== false
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error generating next item code', error: error.message });
+  }
+});
+
 router.get('/barcode/:barcode', protect, async (req, res) => {
   try {
     const models = getTenantDb(req.customerCode);
@@ -124,10 +149,16 @@ router.post('/', protect, async (req, res) => {
 
     const models = getTenantDb(req.customerCode);
 
-    let itemCode = code;
+    let itemCode = code ? String(code).trim() : '';
     if (!itemCode) {
+      const settings = await models.ShopSetting.findOne();
+      const prefix = (settings?.itemCodePrefix !== undefined ? settings.itemCodePrefix : 'ITM').trim();
+      const startNum = Number(settings?.itemCodeStartNumber) || 1001;
+      const digits = Number(settings?.itemCodeDigits) || 4;
       const count = await models.Item.countDocuments();
-      itemCode = String(100 + count + 1);
+      const seq = startNum + count;
+      const padded = String(seq).padStart(digits, '0');
+      itemCode = prefix ? `${prefix}-${padded}` : padded;
     }
 
     const item = await models.Item.create({

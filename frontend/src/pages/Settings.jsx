@@ -1,9 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Settings as SettingsIcon, Store, Printer, Shield, Save, Users, Plus, Check, RefreshCw, Languages, Globe, Percent } from 'lucide-react';
+import { 
+  Settings as SettingsIcon, 
+  Store, 
+  Printer, 
+  Shield, 
+  Save, 
+  Users, 
+  Plus, 
+  Check, 
+  RefreshCw, 
+  Languages, 
+  Globe, 
+  Percent,
+  Barcode,
+  Lock,
+  Unlock,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Tag,
+  FileText,
+  CheckCircle2,
+  AlertTriangle,
+  Sparkles
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import TransliterateInput from '../components/TransliterateInput';
+import BarcodeCheatSheetModal from '../components/BarcodeCheatSheetModal';
 
 export default function Settings() {
   const { user, client, updateShop } = useAuth();
@@ -26,7 +51,21 @@ export default function Settings() {
     roundOff: true,
     allowNegativeStock: true,
     lowStockThreshold: 5,
-    autoPrintReceipt: true
+    autoPrintReceipt: true,
+
+    // Item code format configuration
+    itemCodePrefix: 'ITM',
+    itemCodeStartNumber: 1001,
+    itemCodeDigits: 4,
+    itemCodeAutoGenerate: true,
+
+    // Without-GST / Secret Key Configuration
+    withoutGstEnabled: true,
+    withoutGstHotkey: 'F5',
+    withoutGstPassword: '',
+    withoutGstBillTitle: 'ESTIMATE / CASH MEMO',
+    withoutGstBillPrefix: 'EST-',
+    withoutGstHideGstin: true
   });
 
   // Staff users
@@ -38,6 +77,14 @@ export default function Settings() {
   const { currentLang, selectLanguage, phoneticEnabled, setPhoneticEnabled, languageList } = useLanguage();
   const [testTyping, setTestTyping] = useState('');
 
+  // Loose Item Barcode Generator Modal
+  const [barcodeModalOpen, setBarcodeModalOpen] = useState(false);
+  const [allItemsList, setAllItemsList] = useState([]);
+  const [showWithoutGstPass, setShowWithoutGstPass] = useState(false);
+
+  // Role check: Only Owner / Admin can access or edit Without-GST settings
+  const isAdmin = !user || ['owner', 'admin'].includes(String(user?.role || '').toLowerCase());
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -45,9 +92,10 @@ export default function Settings() {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const [setRes, usersRes] = await Promise.all([
+      const [setRes, usersRes, itemsRes] = await Promise.all([
         axios.get('/api/settings'),
-        axios.get('/api/auth/users')
+        axios.get('/api/auth/users'),
+        axios.get('/api/items').catch(() => ({ data: [] }))
       ]);
       if (setRes.data) {
         setSettings(prev => ({ ...prev, ...setRes.data }));
@@ -55,11 +103,22 @@ export default function Settings() {
       if (usersRes.data?.users) {
         setStaffUsers(usersRes.data.users);
       }
+      if (itemsRes.data) {
+        setAllItemsList(itemsRes.data || []);
+      }
     } catch (err) {
       console.error('Error fetching settings:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOpenBarcodeGenerator = async () => {
+    try {
+      const res = await axios.get('/api/items');
+      setAllItemsList(res.data || []);
+    } catch (e) {}
+    setBarcodeModalOpen(true);
   };
 
   const handleSaveSettings = async (e) => {
@@ -94,6 +153,15 @@ export default function Settings() {
     }
   };
 
+  const navTabs = [
+    { id: 'SHOP', label: 'Shop & Receipt', icon: Store },
+    { id: 'ITEM_CODE', label: 'Item Code & Barcodes', icon: Barcode },
+    { id: 'WITHOUT_GST', label: 'Without-GST Billing', icon: Lock, adminOnly: true },
+    { id: 'PRINTER', label: 'Thermal Printer & Billing', icon: Printer },
+    { id: 'LANGUAGE', label: 'Language & Phonetic Typing', icon: Languages },
+    { id: 'STAFF', label: 'Staff PINs & Roles', icon: Users }
+  ];
+
   return (
     <div className="max-w-4xl mx-auto space-y-3 pb-8">
       {/* Banner */}
@@ -104,7 +172,7 @@ export default function Settings() {
             Shop & App Settings
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Configure receipt header, UPI QR payments, thermal printer and staff PINs
+            Configure receipt header, item code format, loose barcode sheets, secret Without-GST hotkey & staff
           </p>
         </div>
         <div className="text-xs bg-slate-900 border border-slate-700 px-3.5 py-2 rounded-xl text-slate-400">
@@ -113,19 +181,15 @@ export default function Settings() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-700 gap-6">
-        {[
-          { id: 'SHOP', label: 'Shop & Receipt', icon: Store },
-          { id: 'PRINTER', label: 'Thermal Printer & Billing', icon: Printer },
-          { id: 'LANGUAGE', label: 'Language & Phonetic Typing', icon: Languages },
-          { id: 'STAFF', label: 'Staff PINs & Roles', icon: Users }
-        ].map((tab) => {
+      <div className="flex border-b border-slate-700 gap-4 overflow-x-auto no-scrollbar">
+        {navTabs.map((tab) => {
           const Icon = tab.icon;
+          const isRestricted = tab.adminOnly && !isAdmin;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 pb-3 text-sm font-bold border-b-2 transition ${
+              className={`flex items-center gap-2 pb-3 text-sm font-bold border-b-2 transition whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-lime-400 text-lime-400'
                   : 'border-transparent text-slate-400 hover:text-white'
@@ -133,6 +197,11 @@ export default function Settings() {
             >
               <Icon className="w-4 h-4" />
               {tab.label}
+              {tab.adminOnly && (
+                <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  Admin
+                </span>
+              )}
             </button>
           );
         })}
@@ -304,6 +373,324 @@ export default function Settings() {
             </button>
           </div>
         </form>
+      )}
+
+      {/* TAB: ITEM CODE FORMAT & BARCODE GENERATOR */}
+      {activeTab === 'ITEM_CODE' && (
+        <form onSubmit={handleSaveSettings} className="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-slate-900 rounded-xl border border-slate-700">
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Barcode className="w-5 h-5 text-lime-400" />
+                Automatic Item Code Numbering Format
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Customize how product item codes are generated when creating new products or loose grocery items.
+              </p>
+            </div>
+            <div className="shrink-0">
+              <span className="px-3 py-1 bg-lime-500/10 text-lime-400 border border-lime-500/20 text-xs font-mono font-bold rounded-lg">
+                Format: {settings.itemCodePrefix || 'ITM'}-{String(settings.itemCodeStartNumber || 1001).padStart(Number(settings.itemCodeDigits) || 4, '0')}
+              </span>
+            </div>
+          </div>
+
+          {/* Form fields */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                Item Code Prefix
+              </label>
+              <input
+                type="text"
+                value={settings.itemCodePrefix || ''}
+                onChange={(e) => setSettings({ ...settings, itemCodePrefix: e.target.value.toUpperCase() })}
+                placeholder="e.g. ITM, GRO, DAL"
+                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono uppercase focus:outline-none focus:border-lime-500"
+              />
+              <span className="text-[10px] text-slate-400 mt-1 block">Letter prefix placed before number</span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                Starting Number
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={settings.itemCodeStartNumber || 1001}
+                onChange={(e) => setSettings({ ...settings, itemCodeStartNumber: parseInt(e.target.value) || 1 })}
+                placeholder="e.g. 1001"
+                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-lime-500"
+              />
+              <span className="text-[10px] text-slate-400 mt-1 block">Initial starting serial number</span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                Zero Padding Digits
+              </label>
+              <select
+                value={settings.itemCodeDigits || 4}
+                onChange={(e) => setSettings({ ...settings, itemCodeDigits: parseInt(e.target.value) || 4 })}
+                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-lime-500"
+              >
+                <option value={3}>3 Digits (e.g. 001)</option>
+                <option value={4}>4 Digits (e.g. 0001 / 1001)</option>
+                <option value={5}>5 Digits (e.g. 00001)</option>
+                <option value={6}>6 Digits (e.g. 000001)</option>
+              </select>
+              <span className="text-[10px] text-slate-400 mt-1 block">Padding length with leading zeros</span>
+            </div>
+          </div>
+
+          {/* Auto-generate toggle */}
+          <label className="flex items-center justify-between p-4 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
+            <div>
+              <div className="font-bold text-white text-sm">Auto-generate Code on New Item Creation</div>
+              <div className="text-xs text-slate-400">Automatically suggest the next sequential item code when adding a new item</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={Boolean(settings.itemCodeAutoGenerate)}
+              onChange={(e) => setSettings({ ...settings, itemCodeAutoGenerate: e.target.checked })}
+              className="w-5 h-5 accent-lime-500 rounded"
+            />
+          </label>
+
+          {/* Live Preview Box */}
+          <div className="p-4 bg-gradient-to-r from-slate-900 to-slate-950 rounded-xl border border-slate-700 space-y-3">
+            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-lime-400" />
+              Live Item Code Preview & Sequence Sample
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[0, 1, 2].map((idx) => {
+                const sampleNum = (parseInt(settings.itemCodeStartNumber) || 1001) + idx;
+                const samplePad = String(sampleNum).padStart(Number(settings.itemCodeDigits) || 4, '0');
+                const sampleCode = `${(settings.itemCodePrefix || 'ITM').trim().toUpperCase()}-${samplePad}`;
+                const sampleNames = ['Toor Dal (துவரம் பருப்பு)', 'Chilli Powder (மிளகாய் தூள்)', 'Mustard Seeds (கடுகு)'];
+                return (
+                  <div key={idx} className="p-3 bg-slate-800/80 rounded-lg border border-slate-700/60">
+                    <div className="text-[11px] text-slate-400 font-medium truncate">{sampleNames[idx]}</div>
+                    <div className="text-lg font-mono font-black text-lime-400 mt-0.5 tracking-wider">{sampleCode}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section: Loose Items Barcode Generator */}
+          <div className="p-5 bg-lime-950/20 border border-lime-500/30 rounded-xl space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-lime-400" />
+                  Loose Items Barcode Generator (Dal, Chilli Powder, Spices)
+                </h3>
+                <p className="text-xs text-slate-300 mt-1">
+                  Print Code128 barcode stickers or a counter cheat-sheet for loose items sold by weight (kg/gram) or without factory barcodes.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenBarcodeGenerator}
+                className="px-4 py-2.5 bg-lime-500 hover:bg-lime-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2 shrink-0 shadow-md transition"
+              >
+                <Barcode className="w-4 h-4" />
+                Open Loose Barcode Generator
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-2 flex justify-end">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-3 bg-lime-500 hover:bg-lime-400 text-slate-950 font-bold rounded-xl transition shadow-lg shadow-lime-500/20 disabled:opacity-50"
+            >
+              <Save className="w-5 h-5" />
+              {saving ? 'Saving...' : 'Save Item Code Settings'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* TAB: WITHOUT-GST BILLING (ADMIN ONLY) */}
+      {activeTab === 'WITHOUT_GST' && (
+        <div className="space-y-6">
+          {!isAdmin ? (
+            <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 text-center space-y-3">
+              <Lock className="w-12 h-12 text-amber-400 mx-auto" />
+              <h3 className="text-lg font-bold text-white">Administrator Access Required</h3>
+              <p className="text-sm text-slate-400 max-w-md mx-auto">
+                Only the Store Owner or Admin can configure Without-GST billing format, secret hotkeys, and passwords.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleSaveSettings} className="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-amber-500/10 rounded-xl border border-amber-500/30">
+                <div>
+                  <h2 className="text-base font-bold text-amber-300 flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-amber-400" />
+                    Without-GST / Secret Key Billing Mode (Admin Only)
+                  </h2>
+                  <p className="text-xs text-amber-200/80 mt-1">
+                    Configure secret hotkeys and passwords to toggle between GST Tax Invoice and Non-GST / Estimate billing on the POS counter.
+                  </p>
+                </div>
+                <span className="px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold rounded-lg shrink-0">
+                  Secret Mode
+                </span>
+              </div>
+
+              {/* Toggle Enable */}
+              <label className="flex items-center justify-between p-4 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
+                <div>
+                  <div className="font-bold text-white text-sm">Enable Without-GST Billing Mode</div>
+                  <div className="text-xs text-slate-400">Allows switching the POS into Without-GST (Estimate / Cash Memo) format</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={Boolean(settings.withoutGstEnabled)}
+                  onChange={(e) => setSettings({ ...settings, withoutGstEnabled: e.target.checked })}
+                  className="w-5 h-5 accent-amber-500 rounded"
+                />
+              </label>
+
+              {settings.withoutGstEnabled && (
+                <div className="space-y-4 pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Hotkey selector */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                        Activation Hotkey on Billing Screen
+                      </label>
+                      <select
+                        value={settings.withoutGstHotkey || 'F5'}
+                        onChange={(e) => setSettings({ ...settings, withoutGstHotkey: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-amber-500"
+                      >
+                        <option value="F5">Fn + F5 / F5 (Recommended: Enter password after pressing)</option>
+                        <option value="Ctrl+F5">Ctrl + F5</option>
+                        <option value="Alt+F5">Alt + F5</option>
+                        <option value="F9">F9</option>
+                        <option value="Ctrl+B">Ctrl + B</option>
+                      </select>
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Pressing this hotkey on the billing screen triggers the secret password prompt
+                      </span>
+                    </div>
+
+                    {/* Secret Password */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                        Secret Authorization Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showWithoutGstPass ? 'text' : 'password'}
+                          value={settings.withoutGstPassword || ''}
+                          onChange={(e) => setSettings({ ...settings, withoutGstPassword: e.target.value })}
+                          placeholder="Set secret password (e.g. 1234)"
+                          className="w-full px-4 py-2.5 pr-11 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono tracking-wider focus:outline-none focus:border-amber-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowWithoutGstPass(!showWithoutGstPass)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                        >
+                          {showWithoutGstPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Password required to switch from GST to Without-GST mode
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Bill Title */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                        Without-GST Bill Title (Printed on Receipt)
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.withoutGstBillTitle || 'ESTIMATE / CASH MEMO'}
+                        onChange={(e) => setSettings({ ...settings, withoutGstBillTitle: e.target.value })}
+                        placeholder="e.g. ESTIMATE / CASH MEMO"
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-amber-500"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Replaces "TAX INVOICE" header on receipts
+                      </span>
+                    </div>
+
+                    {/* Bill Prefix */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                        Bill Number Prefix
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.withoutGstBillPrefix || 'EST-'}
+                        onChange={(e) => setSettings({ ...settings, withoutGstBillPrefix: e.target.value.toUpperCase() })}
+                        placeholder="e.g. EST-"
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono uppercase focus:outline-none focus:border-amber-500"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Generates series like EST-0001 instead of INV-0001
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Hide GSTIN & Tax info */}
+                  <label className="flex items-center justify-between p-4 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
+                    <div>
+                      <div className="font-bold text-white text-sm">Hide GSTIN & Tax Breakdown on Receipt</div>
+                      <div className="text-xs text-slate-400">
+                        Suppresses shop GSTIN number, HSN code, CGST, and SGST tax breakdown on thermal receipts
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(settings.withoutGstHideGstin)}
+                      onChange={(e) => setSettings({ ...settings, withoutGstHideGstin: e.target.checked })}
+                      className="w-5 h-5 accent-amber-500 rounded"
+                    />
+                  </label>
+
+                  {/* Instructions Card */}
+                  <div className="p-4 bg-slate-900/90 rounded-xl border border-slate-700/80 space-y-2">
+                    <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <KeyRound className="w-4 h-4 text-amber-400" />
+                      How to use on Billing Screen:
+                    </div>
+                    <ol className="text-xs text-slate-300 list-decimal list-inside space-y-1 pl-1">
+                      <li>On the New Bill POS screen, press <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded font-mono text-[11px] text-amber-300">Fn+F5</kbd> (or <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded font-mono text-[11px] text-amber-300">F5</kbd>).</li>
+                      <li>A secure password prompt will immediately pop up on screen.</li>
+                      <li>Type your secret password and press <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded font-mono text-[11px] text-amber-300">Enter</kbd>.</li>
+                      <li>The screen will instantly switch to <span className="text-amber-400 font-bold">Without-GST / Estimate Mode</span> with ₹0 tax calculation and estimate bill serials!</li>
+                      <li>Press the hotkey again or click the mode badge to switch back to <span className="text-lime-400 font-bold">GST Tax Invoice</span> at any time.</li>
+                    </ol>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                >
+                  <Save className="w-5 h-5" />
+                  {saving ? 'Saving...' : 'Save Without-GST Settings'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       )}
 
       {/* TAB 2: PRINTER & BILLING CONFIG */}
@@ -579,6 +966,15 @@ export default function Settings() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Loose Item Barcode Generator & Cheat Sheet Modal */}
+      {barcodeModalOpen && (
+        <BarcodeCheatSheetModal
+          isOpen={barcodeModalOpen}
+          onClose={() => setBarcodeModalOpen(false)}
+          items={allItemsList}
+        />
       )}
     </div>
   );

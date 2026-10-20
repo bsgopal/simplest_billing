@@ -190,9 +190,10 @@ export default function NewBill() {
   // Global USB Barcode Scanner & Hotkey Interceptor
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
-      // Secret Without-GST Hotkey check (Fn+F5 / F5 / Ctrl+F5)
+      // Secret Without-GST Hotkey check (Fn+F5 / F5 / Fn+F7 / F7 / Ctrl+F5)
       const targetHotkey = String(shop?.withoutGstHotkey || 'F5').toUpperCase();
       const isF5 = e.key === 'F5' || e.code === 'F5';
+      const isF7 = e.key === 'F7' || e.code === 'F7';
       const isCtrlF5 = (e.ctrlKey || e.metaKey) && isF5;
       const isAltF5 = e.altKey && isF5;
       const isF9 = e.key === 'F9' || e.code === 'F9';
@@ -200,11 +201,14 @@ export default function NewBill() {
 
       const matchesHotkey = 
         (targetHotkey === 'F5' && isF5 && !e.ctrlKey && !e.altKey) ||
+        (targetHotkey === 'F7' && isF7 && !e.ctrlKey && !e.altKey) ||
+        (targetHotkey === 'BOTH' && (isF5 || isF7) && !e.ctrlKey && !e.altKey) ||
         (targetHotkey === 'CTRL+F5' && isCtrlF5) ||
         (targetHotkey === 'ALT+F5' && isAltF5) ||
         (targetHotkey === 'F9' && isF9) ||
         (targetHotkey === 'CTRL+B' && isCtrlB) ||
-        (isF5); // Always intercept F5 to prevent browser reload and handle billing mode
+        (isF5) || // Intercept F5 (Fn+F5) to prevent browser reload and trigger mode
+        (isF7);   // Intercept F7 (Fn+F7) to prevent browser caret browsing and trigger mode
 
       if (matchesHotkey) {
         e.preventDefault();

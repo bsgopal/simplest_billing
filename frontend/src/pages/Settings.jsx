@@ -596,7 +596,9 @@ export default function Settings() {
                         onChange={(e) => setSettings({ ...settings, withoutGstHotkey: e.target.value })}
                         className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-amber-500"
                       >
-                        <option value="F5">Fn + F5 / F5 (Recommended: Enter password after pressing)</option>
+                        <option value="F5">Fn + F5 / F5 (Enter password after pressing)</option>
+                        <option value="F7">Fn + F7 / F7 (Enter password after pressing)</option>
+                        <option value="BOTH">Fn + F5 or Fn + F7 (Either hotkey)</option>
                         <option value="Ctrl+F5">Ctrl + F5</option>
                         <option value="Alt+F5">Alt + F5</option>
                         <option value="F9">F9</option>
@@ -693,7 +695,7 @@ export default function Settings() {
                       How to use on Billing Screen:
                     </div>
                     <ol className="text-xs text-slate-300 list-decimal list-inside space-y-1 pl-1">
-                      <li>On the New Bill POS screen, press <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded font-mono text-[11px] text-amber-300">Fn+F5</kbd> (or <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded font-mono text-[11px] text-amber-300">F5</kbd>).</li>
+                      <li>On the New Bill POS screen, press <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded font-mono text-[11px] text-amber-300">Fn+F5</kbd> or <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded font-mono text-[11px] text-amber-300">Fn+F7</kbd> (or simply <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded font-mono text-[11px] text-amber-300">F5</kbd> / <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded font-mono text-[11px] text-amber-300">F7</kbd>).</li>
                       <li>A secure password prompt will immediately pop up on screen.</li>
                       <li>Type your secret password and press <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded font-mono text-[11px] text-amber-300">Enter</kbd>.</li>
                       <li>The screen will instantly switch to <span className="text-amber-400 font-bold">Without-GST / Estimate Mode</span> with ₹0 tax calculation and estimate bill serials!</li>

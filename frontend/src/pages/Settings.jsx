@@ -385,16 +385,38 @@ export default function Settings() {
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
                 <Barcode className="w-5 h-5 text-lime-400" />
-                Automatic Item Code Numbering Format
+                Item Code Format (Branded & Non-Branded / Loose Items)
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                Customize how product item codes are generated when creating new products or loose grocery items.
+                Configure code numbering rules for non-branded & loose products, while branded items scan manufacturer barcodes.
               </p>
             </div>
             <div className="shrink-0">
               <span className="px-3 py-1 bg-lime-500/10 text-lime-400 border border-lime-500/20 text-xs font-mono font-bold rounded-lg">
                 Format: {settings.itemCodePrefix || 'ITM'}-{String(settings.itemCodeStartNumber || 1001).padStart(Number(settings.itemCodeDigits) || 4, '0')}
               </span>
+            </div>
+          </div>
+
+          {/* Branded vs Non-Branded Guidance Card */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-900/60 rounded-xl border border-slate-700 text-xs">
+            <div className="p-3 bg-slate-800/60 rounded-lg border border-slate-700/50 space-y-1">
+              <div className="font-bold text-white flex items-center gap-1.5">
+                <Package className="w-4 h-4 text-brand-400" />
+                Branded Products
+              </div>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                Uses the manufacturer's printed EAN-13 / UPC barcode directly from product packaging (e.g. scanning with barcode gun).
+              </p>
+            </div>
+            <div className="p-3 bg-slate-800/60 rounded-lg border border-slate-700/50 space-y-1">
+              <div className="font-bold text-white flex items-center gap-1.5">
+                <Tag className="w-4 h-4 text-lime-400" />
+                Non-Branded & Loose Products
+              </div>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                Automatically numbers products using the sequential prefix and digits below, and prints scannable Code128 counter sheets.
+              </p>
             </div>
           </div>
 
@@ -408,7 +430,7 @@ export default function Settings() {
                 type="text"
                 value={settings.itemCodePrefix || ''}
                 onChange={(e) => setSettings({ ...settings, itemCodePrefix: e.target.value.toUpperCase() })}
-                placeholder="e.g. ITM, GRO, DAL"
+                placeholder="e.g. ITM, ITEM, GEN, NB"
                 className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono uppercase focus:outline-none focus:border-lime-500"
               />
               <span className="text-[10px] text-slate-400 mt-1 block">Letter prefix placed before number</span>
@@ -450,8 +472,8 @@ export default function Settings() {
           {/* Auto-generate toggle */}
           <label className="flex items-center justify-between p-4 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
             <div>
-              <div className="font-bold text-white text-sm">Auto-generate Code on New Item Creation</div>
-              <div className="text-xs text-slate-400">Automatically suggest the next sequential item code when adding a new item</div>
+              <div className="font-bold text-white text-sm">Auto-generate Code for Non-Branded & Loose Items</div>
+              <div className="text-xs text-slate-400">Automatically suggest the next sequential item code when adding unbarcoded products</div>
             </div>
             <input
               type="checkbox"
@@ -472,7 +494,7 @@ export default function Settings() {
                 const sampleNum = (parseInt(settings.itemCodeStartNumber) || 1001) + idx;
                 const samplePad = String(sampleNum).padStart(Number(settings.itemCodeDigits) || 4, '0');
                 const sampleCode = `${(settings.itemCodePrefix || 'ITM').trim().toUpperCase()}-${samplePad}`;
-                const sampleNames = ['Toor Dal (துவரம் பருப்பு)', 'Chilli Powder (மிளகாய் தூள்)', 'Mustard Seeds (கடுகு)'];
+                const sampleNames = ['Item 1', 'Item 2', 'Item 3'];
                 return (
                   <div key={idx} className="p-3 bg-slate-800/80 rounded-lg border border-slate-700/60">
                     <div className="text-[11px] text-slate-400 font-medium truncate">{sampleNames[idx]}</div>
@@ -483,16 +505,16 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* Section: Loose Items Barcode Generator */}
+          {/* Section: Non-Branded & Loose Items Barcode Generator */}
           <div className="p-5 bg-lime-950/20 border border-lime-500/30 rounded-xl space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <Tag className="w-4 h-4 text-lime-400" />
-                  Loose Items Barcode Generator (Dal, Chilli Powder, Spices)
+                  Non-Branded & Loose Items Barcode Generator
                 </h3>
                 <p className="text-xs text-slate-300 mt-1">
-                  Print Code128 barcode stickers or a counter cheat-sheet for loose items sold by weight (kg/gram) or without factory barcodes.
+                  Print Code128 barcode stickers or a counter cheat-sheet for non-branded store items or loose items sold by weight without factory barcodes.
                 </p>
               </div>
               <button
@@ -501,7 +523,7 @@ export default function Settings() {
                 className="px-4 py-2.5 bg-lime-500 hover:bg-lime-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2 shrink-0 shadow-md transition"
               >
                 <Barcode className="w-4 h-4" />
-                Open Loose Barcode Generator
+                Open Barcode Generator
               </button>
             </div>
           </div>

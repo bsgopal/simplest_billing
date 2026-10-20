@@ -128,7 +128,7 @@ export default function BarcodeCheatSheetModal({
                 </span>
               </h3>
               <p className="text-xs text-slate-500">
-                Print a scannable menu card for Dal, Spices, Grains, and loose items to stick at the billing desk.
+                Print a scannable cheat-sheet or barcode stickers for loose and non-branded store items to scan at the counter.
               </p>
             </div>
           </div>

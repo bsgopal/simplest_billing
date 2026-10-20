@@ -23,7 +23,8 @@ import {
   FileText,
   CheckCircle2,
   AlertTriangle,
-  Sparkles
+  Sparkles,
+  Package
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';

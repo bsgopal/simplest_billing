@@ -21,11 +21,17 @@ import {
   Layers,
   Percent,
   ChevronRight,
-  Download
+  Download,
+  Lock,
+  Unlock,
+  KeyRound,
+  X,
+  Shield
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import ThermalReceiptModal from '../components/ThermalReceiptModal';
 
 export default function Reports() {
@@ -54,8 +60,86 @@ export default function Reports() {
   const [customerReport, setCustomerReport] = useState({ summary: {}, customers: [], recentLedger: [] });
   const [customerSearch, setCustomerSearch] = useState('');
 
+  const { toast } = useToast();
   // Selected Bill for Thermal Receipt Modal
   const [selectedBill, setSelectedBill] = useState(null);
+
+  // Secret Without-GST / Non-GST Report Security States (Fn+F5 / Fn+F7)
+  const [nonGstUnlocked, setNonGstUnlocked] = useState(false);
+  const [showWithoutGstPrompt, setShowWithoutGstPrompt] = useState(false);
+  const [withoutGstPasswordInput, setWithoutGstPasswordInput] = useState('');
+  const [withoutGstError, setWithoutGstError] = useState('');
+  const [verifyingPassword, setVerifyingPassword] = useState(false);
+  const [nonGstSearch, setNonGstSearch] = useState('');
+
+  // Global Secret Hotkey Interceptor (Fn+F5 / F5 / Fn+F7 / F7)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      const targetHotkey = String(shop?.withoutGstHotkey || 'F5').toUpperCase();
+      const isF5 = e.key === 'F5' || e.code === 'F5';
+      const isF7 = e.key === 'F7' || e.code === 'F7';
+      const isCtrlF5 = (e.ctrlKey || e.metaKey) && isF5;
+      const isAltF5 = e.altKey && isF5;
+      const isF9 = e.key === 'F9' || e.code === 'F9';
+      const isCtrlB = (e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B');
+
+      const matchesHotkey = 
+        (targetHotkey === 'F5' && isF5 && !e.ctrlKey && !e.altKey) ||
+        (targetHotkey === 'F7' && isF7 && !e.ctrlKey && !e.altKey) ||
+        (targetHotkey === 'BOTH' && (isF5 || isF7) && !e.ctrlKey && !e.altKey) ||
+        (targetHotkey === 'CTRL+F5' && isCtrlF5) ||
+        (targetHotkey === 'ALT+F5' && isAltF5) ||
+        (targetHotkey === 'F9' && isF9) ||
+        (targetHotkey === 'CTRL+B' && isCtrlB) ||
+        (isF5) ||
+        (isF7);
+
+      if (matchesHotkey) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (nonGstUnlocked) {
+          setNonGstUnlocked(false);
+          setActiveTab(prev => (prev === 'NON_GST' ? 'BILLING' : prev));
+          toast.info('Non-GST Billing Report locked and concealed');
+        } else {
+          setWithoutGstPasswordInput('');
+          setWithoutGstError('');
+          setShowWithoutGstPrompt(true);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [shop?.withoutGstHotkey, nonGstUnlocked]);
+
+  const handleVerifyWithoutGstPassword = async (e) => {
+    e.preventDefault();
+    if (!withoutGstPasswordInput.trim()) {
+      setWithoutGstError('Please enter secret password');
+      return;
+    }
+    setVerifyingPassword(true);
+    try {
+      setWithoutGstError('');
+      const res = await axios.post('/api/settings/verify-without-gst-password', {
+        password: withoutGstPasswordInput.trim()
+      });
+      if (res.data?.success) {
+        setNonGstUnlocked(true);
+        setShowWithoutGstPrompt(false);
+        setWithoutGstPasswordInput('');
+        setActiveTab('NON_GST');
+        toast.success('🟡 Non-GST / Estimate Billing Report Unlocked');
+      } else {
+        setWithoutGstError('Incorrect secret password');
+      }
+    } catch (err) {
+      setWithoutGstError(err.response?.data?.message || 'Incorrect secret password');
+    } finally {
+      setVerifyingPassword(false);
+    }
+  };
 
   const handleDatePreset = (preset) => {
     setDateRange(preset);
@@ -109,9 +193,26 @@ export default function Reports() {
   const stockSummary = stockReport.summary || {};
   const customerSummary = customerReport.summary || {};
 
-  // Filtered lists
-  const filteredBills = billsHistory.filter((b) => {
+  const isBillNonGst = (b) => {
+    return b.billType === 'NON_GST' || b.isGstBill === false || (b.billNo && b.billNo.toUpperCase().startsWith('EST'));
+  };
+
+  // Standard GST Bills (Non-GST bills excluded for privacy)
+  const standardBills = billsHistory.filter((b) => !isBillNonGst(b));
+  const filteredBills = standardBills.filter((b) => {
     const q = billsSearch.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      (b.billNo && b.billNo.toLowerCase().includes(q)) ||
+      (b.customer?.name && b.customer.name.toLowerCase().includes(q)) ||
+      (b.customer?.phone && b.customer.phone.includes(q))
+    );
+  });
+
+  // Non-GST / Estimate Bills (Accessible only via Fn+F5 / Fn+F7 secret unlock)
+  const nonGstBills = billsHistory.filter((b) => isBillNonGst(b));
+  const filteredNonGstBills = nonGstBills.filter((b) => {
+    const q = nonGstSearch.toLowerCase().trim();
     if (!q) return true;
     return (
       (b.billNo && b.billNo.toLowerCase().includes(q)) ||
@@ -265,6 +366,79 @@ export default function Reports() {
 
     addReportFooter(doc);
     doc.save(`Billing_Report_${startDate}_to_${endDate}.pdf`);
+  };
+
+  const exportNonGstPdf = () => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const dateStr = `${startDate} to ${endDate}`;
+
+    addReportHeader(doc, 'Non-GST / Estimate Billing Report', `Period: ${dateStr} • (Zero Tax / Estimate Serial)`);
+
+    // Summary Cards Box
+    doc.setFillColor(254, 243, 199);
+    doc.setDrawColor(245, 158, 11);
+    doc.roundedRect(14, 42, 182, 17, 2, 2, 'FD');
+
+    doc.setFontSize(7.5);
+    doc.setTextColor(146, 64, 14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL ESTIMATES', 18, 48);
+    doc.text('TOTAL REVENUE', 62, 48);
+    doc.text('CASH SALES', 108, 48);
+    doc.text('UPI SALES', 148, 48);
+
+    const nonGstTotal = filteredNonGstBills.reduce((s, b) => s + (b.grandTotal || 0), 0);
+    const nonGstCash = filteredNonGstBills.reduce((s, b) => s + (b.payments?.cash || 0), 0);
+    const nonGstUpi = filteredNonGstBills.reduce((s, b) => s + (b.payments?.upi || 0), 0);
+
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${filteredNonGstBills.length}`, 18, 54);
+    doc.setTextColor(180, 83, 9);
+    doc.text(`Rs. ${nonGstTotal.toFixed(2)}`, 62, 54);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`Rs. ${nonGstCash.toFixed(2)}`, 108, 54);
+    doc.text(`Rs. ${nonGstUpi.toFixed(2)}`, 148, 54);
+
+    const rows = filteredNonGstBills.map((b, idx) => [
+      idx + 1,
+      b.billNo || '-',
+      new Date(b.date).toLocaleDateString('en-IN') + ' ' + new Date(b.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+      b.customer?.name || 'Walk-in',
+      b.items?.length || 0,
+      b.payments?.credit > 0 ? 'Credit' : b.payments?.upi > 0 ? 'UPI' : b.payments?.card > 0 ? 'Card' : 'Cash',
+      `Rs. ${(b.grandTotal || 0).toFixed(2)}`
+    ]);
+
+    autoTable(doc, {
+      startY: 63,
+      head: [['#', 'Estimate No', 'Date & Time', 'Customer', 'Items', 'Mode', 'Grand Total']],
+      body: rows,
+      theme: 'striped',
+      headStyles: {
+        fillColor: [217, 119, 6],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 7.5
+      },
+      bodyStyles: {
+        fontSize: 7.5,
+        textColor: [30, 41, 59]
+      },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 26, fontStyle: 'bold' },
+        2: { cellWidth: 38 },
+        3: { cellWidth: 42 },
+        4: { cellWidth: 16, halign: 'center' },
+        5: { cellWidth: 20, halign: 'center' },
+        6: { cellWidth: 30, halign: 'right', fontStyle: 'bold', textColor: [180, 83, 9] }
+      },
+      margin: { left: 14, right: 14, bottom: 15 }
+    });
+
+    addReportFooter(doc);
+    doc.save(`Estimate_NonGST_Report_${startDate}_to_${endDate}.pdf`);
   };
 
   const exportStockPdf = () => {
@@ -512,6 +686,8 @@ export default function Reports() {
   const handleExportCurrentTabPdf = () => {
     if (activeTab === 'BILLING') {
       exportBillingPdf();
+    } else if (activeTab === 'NON_GST') {
+      exportNonGstPdf();
     } else if (activeTab === 'STOCK') {
       exportStockPdf();
     } else if (activeTab === 'CUSTOMERS') {
@@ -659,31 +835,57 @@ export default function Reports() {
       </div>
 
       {/* Main Report Category Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200 no-scrollbar">
-        {[
-          { id: 'BILLING', label: '🧾 Billing History', count: billsHistory.length },
-          { id: 'STOCK', label: '📦 Stock History', count: stockReport.items?.length },
-          { id: 'CUSTOMERS', label: '👥 Customer History', count: customerReport.customers?.length },
-          { id: 'OVERVIEW', label: '📊 Sales & Financials' },
-          { id: 'GST', label: '📑 GST Tax Breakdown' }
-        ].map((t) => (
+      <div className="flex items-center justify-between gap-1.5 overflow-x-auto pb-1 border-b border-slate-200 no-scrollbar">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          {[
+            { id: 'BILLING', label: '🧾 Billing History', count: standardBills.length },
+            ...(nonGstUnlocked ? [{ id: 'NON_GST', label: '🟡 Non-GST / Estimate Bills', count: nonGstBills.length, isSecret: true }] : []),
+            { id: 'STOCK', label: '📦 Stock History', count: stockReport.items?.length },
+            { id: 'CUSTOMERS', label: '👥 Customer History', count: customerReport.customers?.length },
+            { id: 'OVERVIEW', label: '📊 Sales & Financials' },
+            { id: 'GST', label: '📑 GST Tax Breakdown' }
+          ].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 ${
+                activeTab === t.id
+                  ? t.isSecret
+                    ? 'bg-amber-500 text-slate-950 shadow-xs'
+                    : 'bg-brand-500 text-slate-950 shadow-xs'
+                  : t.isSecret
+                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200'
+                    : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+              }`}
+            >
+              <span>{t.label}</span>
+              {t.count !== undefined && (
+                <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-black border ${
+                  t.isSecret
+                    ? 'bg-white/80 text-amber-950 border-amber-300'
+                    : 'bg-white/70 text-slate-900 border-slate-200/50'
+                }`}>
+                  {t.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {nonGstUnlocked && (
           <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id)}
-            className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 ${
-              activeTab === t.id
-                ? 'bg-brand-500 text-slate-950 shadow-xs'
-                : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-            }`}
+            onClick={() => {
+              setNonGstUnlocked(false);
+              setActiveTab(prev => (prev === 'NON_GST' ? 'BILLING' : prev));
+              toast.info('Non-GST Billing Report locked and concealed');
+            }}
+            className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold rounded-xl border border-amber-300 transition"
+            title="Lock and conceal Non-GST bills"
           >
-            <span>{t.label}</span>
-            {t.count !== undefined && (
-              <span className="px-1.5 py-0.2 bg-white/70 rounded-md text-[10px] font-black text-slate-900 border border-slate-200/50">
-                {t.count}
-              </span>
-            )}
+            <Lock className="w-3.5 h-3.5" />
+            <span>Lock Non-GST</span>
           </button>
-        ))}
+        )}
       </div>
 
       {/* ========================================================================= */}
@@ -782,6 +984,161 @@ export default function Reports() {
                           className="px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-900 font-bold rounded-lg text-[11px] border border-brand-200 transition flex items-center gap-1 mx-auto"
                         >
                           <Eye className="w-3.5 h-3.5 text-brand-600" />
+                          <span>View</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: NON-GST / ESTIMATE BILLING REPORT (SECRET UNLOCK) */}
+      {/* ========================================================================= */}
+      {activeTab === 'NON_GST' && nonGstUnlocked && (
+        <div className="bg-white rounded-2xl border-2 border-amber-300 shadow-xs overflow-hidden space-y-4 p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/70 p-3.5 rounded-xl border border-amber-200">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                <h3 className="font-black text-amber-950 text-base flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-amber-600" />
+                  Non-GST / Estimate Billing History
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black tracking-wide uppercase">
+                  Confidential
+                </span>
+              </div>
+              <p className="text-xs text-amber-800 font-medium mt-0.5">
+                Audit record of all zero-tax estimate bills created in this period
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="relative w-full sm:w-64">
+                <Search className="w-4 h-4 text-amber-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search estimate # or customer..."
+                  value={nonGstSearch}
+                  onChange={(e) => setNonGstSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-white border border-amber-300 rounded-xl text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-hidden focus:border-amber-500"
+                />
+              </div>
+
+              <button
+                onClick={exportNonGstPdf}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs transition shadow-xs shrink-0"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export PDF</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Metrics summary cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-200">
+              <span className="text-[10px] font-bold uppercase text-amber-700 tracking-wider">Total Estimates</span>
+              <div className="text-lg font-black text-amber-950 mt-0.5">{filteredNonGstBills.length}</div>
+            </div>
+            <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-200">
+              <span className="text-[10px] font-bold uppercase text-amber-700 tracking-wider">Total Revenue</span>
+              <div className="text-lg font-black text-amber-800 mt-0.5">
+                ₹{filteredNonGstBills.reduce((s, b) => s + (b.grandTotal || 0), 0).toFixed(2)}
+              </div>
+            </div>
+            <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-200">
+              <span className="text-[10px] font-bold uppercase text-amber-700 tracking-wider">Cash Revenue</span>
+              <div className="text-lg font-black text-emerald-700 mt-0.5">
+                ₹{filteredNonGstBills.reduce((s, b) => s + (b.payments?.cash || 0), 0).toFixed(2)}
+              </div>
+            </div>
+            <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-200">
+              <span className="text-[10px] font-bold uppercase text-amber-700 tracking-wider">UPI / Card</span>
+              <div className="text-lg font-black text-blue-700 mt-0.5">
+                ₹{filteredNonGstBills.reduce((s, b) => s + (b.payments?.upi || 0) + (b.payments?.card || 0), 0).toFixed(2)}
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left min-w-[700px]">
+              <thead className="bg-amber-100/60 border-b border-amber-200 text-amber-950 font-extrabold uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th className="px-4 py-3">Estimate No</th>
+                  <th className="px-4 py-3">Date &amp; Time</th>
+                  <th className="px-4 py-3">Customer</th>
+                  <th className="px-4 py-3 text-center">Items</th>
+                  <th className="px-4 py-3 text-center">Payment Mode</th>
+                  <th className="px-4 py-3 text-right">Grand Total</th>
+                  <th className="px-4 py-3 text-center">Receipt</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredNonGstBills.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="text-center py-10 text-slate-400 font-medium">
+                      No Non-GST / Estimate bills found for the selected period
+                    </td>
+                  </tr>
+                ) : (
+                  filteredNonGstBills.map((b) => (
+                    <tr key={b._id} className="hover:bg-amber-50/40 transition">
+                      <td className="px-4 py-3 font-mono font-black text-amber-900">
+                        {b.billNo}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 font-medium">
+                        {new Date(b.date).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        })} • {new Date(b.date).toLocaleTimeString('en-IN', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-slate-900">
+                        {b.customer?.name || 'Walk-in Customer'}
+                        {b.customer?.phone && (
+                          <span className="block text-[10px] text-slate-400 font-mono">
+                            {b.customer.phone}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center font-bold text-slate-600">
+                        {b.items?.length || 0}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${
+                          b.payments?.credit > 0
+                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                            : b.payments?.upi > 0
+                            ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                            : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        }`}>
+                          {b.payments?.credit > 0
+                            ? 'Credit'
+                            : b.payments?.upi > 0
+                            ? 'UPI'
+                            : b.payments?.card > 0
+                            ? 'Card'
+                            : 'Cash'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-amber-900 text-sm">
+                        ₹{(b.grandTotal || 0).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => setSelectedBill(b)}
+                          className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded-lg text-[11px] border border-amber-300 transition flex items-center gap-1 mx-auto"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-amber-700" />
                           <span>View</span>
                         </button>
                       </td>
@@ -1289,6 +1646,78 @@ export default function Reports() {
           ) : (
             <div className="text-center py-12 text-slate-400 text-xs font-bold">No GST transactions recorded for this period</div>
           )}
+        </div>
+      )}
+
+      {/* Secret Password Modal for Unlocking Non-GST Bills */}
+      {showWithoutGstPrompt && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95 duration-150">
+            <button
+              onClick={() => {
+                setShowWithoutGstPrompt(false);
+                setWithoutGstPasswordInput('');
+                setWithoutGstError('');
+              }}
+              className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Unlock Non-GST Reports</h3>
+                <p className="text-xs text-slate-500 font-medium">Enter secret password to view estimate records</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleVerifyWithoutGstPassword} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Secret Access Password
+                </label>
+                <div className="relative">
+                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="password"
+                    autoFocus
+                    value={withoutGstPasswordInput}
+                    onChange={(e) => setWithoutGstPasswordInput(e.target.value)}
+                    placeholder="Enter password..."
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-hidden focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  />
+                </div>
+                {withoutGstError && (
+                  <p className="text-xs text-rose-600 font-bold mt-1.5">{withoutGstError}</p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowWithoutGstPrompt(false);
+                    setWithoutGstPasswordInput('');
+                    setWithoutGstError('');
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={verifyingPassword}
+                  className="px-4 py-2 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-600 text-slate-950 transition flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                >
+                  <Unlock className="w-3.5 h-3.5" />
+                  <span>{verifyingPassword ? 'Verifying...' : 'Unlock Non-GST'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

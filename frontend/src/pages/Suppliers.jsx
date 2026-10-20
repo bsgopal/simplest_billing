@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Truck, Plus, Phone, Building2, Search, DollarSign, X, Check, ArrowDownLeft } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 export default function Suppliers() {
+  const { toast } = useToast();
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -46,9 +48,10 @@ export default function Suppliers() {
       await axios.post('/api/suppliers', formData);
       setShowAddModal(false);
       setFormData({ name: '', phone: '', companyName: '', gstin: '', address: '', openingBalance: 0 });
+      toast.success('Supplier saved successfully!');
       fetchSuppliers();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to save supplier');
+      toast.error(err.response?.data?.message || 'Failed to save supplier');
     }
   };
 
@@ -61,13 +64,14 @@ export default function Suppliers() {
         paymentMode: payMode,
         notes: payNotes
       });
+      toast.success(`Payment of ₹${Number(payAmount).toFixed(2)} recorded successfully!`);
       setShowPayModal(false);
       setPayAmount('');
       setPayNotes('');
       setSelectedSupplier(null);
       fetchSuppliers();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to record payment');
+      toast.error(err.response?.data?.message || 'Failed to record payment');
     }
   };
 

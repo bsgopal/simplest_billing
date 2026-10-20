@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ShoppingBag, Plus, Trash2, Check, Search, Calendar, Truck, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 
 export default function PurchaseEntry() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [suppliers, setSuppliers] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -102,12 +104,12 @@ export default function PurchaseEntry() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!supplierId) {
-      alert('Please select a supplier');
+      toast.warning('Please select a supplier');
       return;
     }
     const validItems = purchaseItems.filter(i => i.itemId && i.quantity > 0);
     if (validItems.length === 0) {
-      alert('Please select at least one item with quantity greater than 0');
+      toast.warning('Please select at least one item with quantity greater than 0');
       return;
     }
 
@@ -124,10 +126,10 @@ export default function PurchaseEntry() {
         balanceDue,
         notes
       });
-      alert('Purchase entry saved successfully! Stock updated.');
+      toast.success('Purchase entry saved successfully! Stock updated.');
       navigate('/items');
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to save purchase entry');
+      toast.error(err.response?.data?.message || 'Failed to save purchase entry');
     } finally {
       setSubmitting(false);
     }

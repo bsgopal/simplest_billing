@@ -304,7 +304,7 @@ export default function BarcodeStockModal({
   const linkBarcodeAndAddStock = async (itemToUpdate, codeToLink, qtyToAdd) => {
     const targetItem = itemToUpdate || selectedItem;
     if (!targetItem) {
-      alert('Please select or create an item first!');
+      toast.warning('Please select or create an item first!');
       return;
     }
 
@@ -337,10 +337,11 @@ export default function BarcodeStockModal({
       };
       setRecentScans(prev => [logEntry, ...prev.slice(0, 9)]);
       setSaveSuccessMsg(`Success! Added +${qtyNum} ${updated.unit} to "${updated.name}" (Stock now: ${updated.currentStock})`);
+      toast.success(`Stock updated! Added +${qtyNum} ${updated.unit} to "${updated.name}"`);
 
       if (onItemSaved) onItemSaved();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update stock');
+      toast.error(err.response?.data?.message || 'Failed to update stock');
     } finally {
       setSubmitting(false);
     }
@@ -407,8 +408,9 @@ export default function BarcodeStockModal({
       const dispName = getItemDisplayName(created);
       setSaveSuccessMsg(`Item "${dispName}" created! Ready to scan packet barcodes to add more stock.`);
       if (onItemSaved) onItemSaved();
+      toast.success(`Item "${dispName}" created successfully!`);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to create item');
+      toast.error(err.response?.data?.message || 'Failed to create item');
     } finally {
       setSubmitting(false);
     }

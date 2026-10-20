@@ -465,7 +465,7 @@ export default function NewBill() {
       setNewCustName('');
       setNewCustPhone('');
     } catch (err) {
-      alert('Error creating customer');
+      showToast('Error creating customer', 'error');
     }
   };
 

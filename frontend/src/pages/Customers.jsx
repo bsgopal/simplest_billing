@@ -7,12 +7,14 @@ import {
   Share2, 
   Receipt, 
   Coins, 
-  X,
-  CreditCard,
-  Calendar
+  X, 
+  CreditCard, 
+  Calendar 
 } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 export default function Customers() {
+  const { toast } = useToast();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -65,7 +67,7 @@ export default function Customers() {
       const res = await axios.get(`/api/customers/${cust._id}/ledger`);
       setLedgerEntries(res.data.ledger || []);
     } catch (err) {
-      alert('Error fetching ledger');
+      toast.error('Error fetching ledger');
     } finally {
       setLedgerLoading(false);
     }
@@ -80,8 +82,9 @@ export default function Customers() {
       });
       setCustomerModal(false);
       fetchCustomers();
+      toast.success(editingCust ? 'Customer updated successfully!' : 'Customer added successfully!');
     } catch (err) {
-      alert('Error saving customer');
+      toast.error(err.response?.data?.message || 'Error saving customer');
     }
   };
 
@@ -95,6 +98,7 @@ export default function Customers() {
         mode: payMode,
         note: payNote
       });
+      toast.success(`Payment of ₹${parseFloat(payAmount).toFixed(2)} recorded successfully!`);
       setPayModalCustomer(null);
       setPayAmount('');
       setPayNote('');
@@ -103,7 +107,7 @@ export default function Customers() {
         handleOpenLedger(payModalCustomer);
       }
     } catch (err) {
-      alert('Error recording payment');
+      toast.error(err.response?.data?.message || 'Error recording payment');
     }
   };
 
@@ -113,10 +117,10 @@ export default function Customers() {
       if (res.data.whatsappUrl) {
         window.open(res.data.whatsappUrl, '_blank');
       } else {
-        alert(res.data.message);
+        toast.info(res.data.message);
       }
     } catch (err) {
-      alert('Error generating reminder');
+      toast.error('Error generating reminder');
     }
   };
 

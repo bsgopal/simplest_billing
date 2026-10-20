@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import ThermalReceiptModal from '../components/ThermalReceiptModal';
 import { 
   Search, 
@@ -16,6 +17,7 @@ import {
 
 export default function BillsList() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -52,7 +54,7 @@ export default function BillsList() {
 
   const handleCancelBill = async () => {
     if (!cancelReason.trim()) {
-      alert('Cancel reason is mandatory');
+      toast.warning('Cancel reason is mandatory');
       return;
     }
 
@@ -61,11 +63,12 @@ export default function BillsList() {
       await axios.post(`/api/bills/${cancelModalBill._id}/cancel`, {
         reason: cancelReason.trim()
       });
+      toast.success('Bill cancelled successfully');
       setCancelModalBill(null);
       setCancelReason('');
       fetchBills();
     } catch (err) {
-      alert(err.response?.data?.message || 'Error cancelling bill');
+      toast.error(err.response?.data?.message || 'Error cancelling bill');
     } finally {
       setCancelling(false);
     }

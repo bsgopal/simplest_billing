@@ -27,11 +27,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useToast } from '../context/ToastContext';
 import TransliterateInput from '../components/TransliterateInput';
 import BarcodeCheatSheetModal from '../components/BarcodeCheatSheetModal';
 
 export default function Settings() {
   const { user, client, updateShop } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('SHOP');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -128,9 +130,9 @@ export default function Settings() {
       const res = await axios.put('/api/settings', settings);
       const updated = res.data?.settings || settings;
       if (updateShop) updateShop(updated);
-      alert('Settings updated successfully!');
+      toast.success('Settings updated successfully!');
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to save settings');
+      toast.error(err.response?.data?.message || 'Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -139,17 +141,18 @@ export default function Settings() {
   const handleAddStaff = async (e) => {
     e.preventDefault();
     if (!newStaff.name || !newStaff.pin) {
-      alert('Please provide name and 4-digit PIN');
+      toast.warning('Please provide staff name and 4-digit PIN');
       return;
     }
     try {
       await axios.post('/api/auth/users', newStaff);
       setShowAddStaff(false);
       setNewStaff({ name: '', role: 'CASHIER', pin: '' });
+      toast.success('Staff operator added successfully!');
       const res = await axios.get('/api/auth/users');
       setStaffUsers(res.data.users || []);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to add staff');
+      toast.error(err.response?.data?.message || 'Failed to add staff');
     }
   };
 

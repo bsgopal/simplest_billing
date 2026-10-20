@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { SunMoon, Printer, CheckCircle, AlertCircle, History, Wallet } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 export default function DayClose() {
+  const { toast } = useToast();
   const [data, setData] = useState(null);
   const [actualCash, setActualCash] = useState('');
   const [note, setNote] = useState('');
@@ -39,7 +41,7 @@ export default function DayClose() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isNaN(actual)) {
-      alert('Please enter actual cash counted');
+      toast.warning('Please enter actual cash counted');
       return;
     }
 
@@ -50,9 +52,10 @@ export default function DayClose() {
         note
       });
       setCompletedClose(res.data.dayClose);
+      toast.success('Day tally closed successfully!');
       fetchDayCloseData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Error closing day');
+      toast.error(err.response?.data?.message || 'Error closing day');
     } finally {
       setSubmitting(false);
     }

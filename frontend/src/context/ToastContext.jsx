@@ -41,6 +41,30 @@ export function ToastProvider({ children }) {
     remove: removeToast
   };
 
+  const snackbar = {
+    ...toast,
+    show: (msg, type = 'info', duration = 3500) => addToast(msg, type, duration)
+  };
+
+  // Safe window.alert interception so native blocking browser dialogs NEVER interrupt the user
+  React.useEffect(() => {
+    const originalAlert = window.alert;
+    window.alert = (msg) => {
+      const text = typeof msg === 'object' ? JSON.stringify(msg) : String(msg ?? '');
+      const lower = text.toLowerCase();
+      if (lower.includes('success') || lower.includes('saved') || lower.includes('updated') || lower.includes('created')) {
+        toast.success(text);
+      } else if (lower.includes('required') || lower.includes('please') || lower.includes('warning') || lower.includes('mandatory')) {
+        toast.warning(text);
+      } else {
+        toast.error(text);
+      }
+    };
+    return () => {
+      window.alert = originalAlert;
+    };
+  }, [addToast]);
+
   // Modern In-App Snackbar / Confirmation Dialog
   const confirm = useCallback(({
     title = 'Are you sure?',
@@ -102,22 +126,22 @@ export function ToastProvider({ children }) {
   };
 
   return (
-    <ToastContext.Provider value={{ toast, confirm, prompt }}>
+    <ToastContext.Provider value={{ toast, snackbar, showToast: addToast, showSnackbar: addToast, confirm, prompt }}>
       {children}
 
-      {/* Floating Toast Notification Stack (Bottom-Right on Desktop, Bottom-Center on Mobile) */}
-      <div className="fixed bottom-20 md:bottom-6 right-3 md:right-6 z-[9990] flex flex-col gap-2 max-w-sm w-full pointer-events-none px-2 sm:px-0">
+      {/* Floating Modern Toast / Snackbar Stack (Top-Right Fixed) */}
+      <div className="fixed top-4 right-4 z-[99999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-3 sm:px-0">
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-2xl shadow-xl border text-sm font-semibold transition-all duration-300 animate-in slide-in-from-bottom-3 ${
+            className={`pointer-events-auto flex items-start gap-3 p-4 rounded-2xl shadow-2xl border text-sm font-bold backdrop-blur-md transition-all duration-200 animate-in slide-in-from-top-3 fade-in ${
               t.type === 'success'
-                ? 'bg-slate-900 text-white border-emerald-500/50 shadow-emerald-950/20'
+                ? 'bg-slate-900/95 text-white border-emerald-500 shadow-emerald-500/20'
                 : t.type === 'error'
-                ? 'bg-red-950 text-white border-red-500/50 shadow-red-950/20'
+                ? 'bg-slate-900/95 text-white border-red-500 shadow-red-500/20'
                 : t.type === 'warning'
-                ? 'bg-amber-950 text-white border-amber-500/50 shadow-amber-950/20'
-                : 'bg-slate-900 text-white border-slate-700 shadow-slate-950/20'
+                ? 'bg-slate-900/95 text-white border-amber-500 shadow-amber-500/20'
+                : 'bg-slate-900/95 text-white border-slate-700 shadow-slate-950/20'
             }`}
           >
             <div className="shrink-0 mt-0.5">
@@ -132,7 +156,7 @@ export function ToastProvider({ children }) {
             <button
               type="button"
               onClick={() => removeToast(t.id)}
-              className="shrink-0 text-slate-400 hover:text-white p-0.5 rounded-md transition-colors cursor-pointer"
+              className="shrink-0 text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -237,3 +261,5 @@ export function useToast() {
   }
   return context;
 }
+
+export const useSnackbar = useToast;
